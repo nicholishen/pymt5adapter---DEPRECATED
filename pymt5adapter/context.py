@@ -22,8 +22,8 @@ def connected(*,
               timeout: int = None,
               ensure_trade_enabled: bool = False,
               enable_real_trading: bool = False,
-              logger: Callable[[str], None] = None,
-              raise_on_error: bool = False,
+              logger: Callable = None,
+              raise_on_errors: bool = False,
               debug_logging: bool = False,
               force_namedtuple: bool = False,
               **kwargs
@@ -39,7 +39,7 @@ def connected(*,
     :param ensure_trade_enabled: Ensure that auto-trading is enabled
     :param enable_real_trading:  Must be explicitly set to True to run on a live account
     :param logger: Logging function. Will pass connection status messages to this function
-    :param raise_on_error: bool - Raise Mt5Error Exception when the last_error() result of a function is not RES_S_OK
+    :param raise_on_errors: bool - Raise Mt5Error Exception when the last_error() result of a function is not RES_S_OK
     :param debug_logging: Logs each function call that results in an error or empty data return
     :param force_namedtuple:
     :param kwargs:
@@ -49,7 +49,7 @@ def connected(*,
         The param ``enable_real_trading`` must be set to True to work on live accounts.
     """
     _state.global_debugging = debug_logging
-    _state.raise_on_errors = raise_on_error
+    _state.raise_on_errors = raise_on_errors
     _state.force_namedtuple = force_namedtuple
     _state.log = logger
     log = _state.log

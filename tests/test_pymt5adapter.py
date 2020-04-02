@@ -34,6 +34,33 @@ def make_kwargs_func(func):
     return lambda **kwargs: func(**kwargs)
 
 
+
+def test_easy_example():
+    mt5_connected = mt5.connected(
+        # path=r'C:\Users\user\Desktop\MT5\terminal64.exe',
+        # portable=True,
+        # server='MetaQuotes-Demo',
+        # login=1234567,
+        # password='password1',
+        # timeout=5000,
+        ensure_trade_enabled=True,
+        enable_real_trading=False,
+        raise_on_errors=True,
+        debug_logging=True,
+        logger=print,
+    )
+    with mt5_connected:
+        try:
+            num_orders = mt5.history_orders_total("invalid", "arguments")
+        except mt5.MT5Error as e:
+            print("We modified the API to throw exceptions for all functions.")
+            print(f"Error = {e}")
+
+        visible_symbols = mt5.symbols_get(function=lambda s: s.visible)
+        def out_deal(deal: mt5.TradeDeal):
+            return deal.entry == mt5.DEAL_ENTRY_OUT
+        out_deals = mt5.history_deals_get(function=out_deal)
+
 def test_trade_class(connected):
     from pymt5adapter.advanced import Trade
     with connected:
@@ -56,7 +83,7 @@ def test_mt5_connection_context():
     state.set_defaults()
     assert not state.global_debugging
     assert not state.raise_on_errors
-    connection = mt5.connected(raise_on_error=True, debug_logging=True)
+    connection = mt5.connected(raise_on_errors=True, debug_logging=True)
     with connection:
         assert state.global_debugging
         assert state.raise_on_errors
