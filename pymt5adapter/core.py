@@ -138,7 +138,7 @@ def symbols_total() -> int:
 
 @_context_manager_modified
 def symbols_get(*,
-                group=None,
+                group: str = None,
                 function: Callable[[SymbolInfo], bool] = None,
                 **kwargs
                 ) -> Tuple[SymbolInfo]:
@@ -149,6 +149,7 @@ def symbols_get(*,
         Unlike symbol_info(), the symbols_get() function returns data on all requested symbols within a single call.
 
     :param group: The filter for arranging a group of necessary symbols. Optional parameter. If the group is specified, the function returns only symbols meeting a specified criteria.
+    :param function: A function that takes a SymbolInfo object as its only arg and returns <bool> for filtering the collection of SymbolInfo results.
     :param kwargs:
     :return: A tuple of SymbolInfo objects
     """

@@ -2,8 +2,8 @@
 
 `pymt5adapter` is a wrapper and drop-in replacement for the MetaTrader5 python package by MetaQuotes. The API functions return the same values from the mt5 functions, but adds the following functionality:
 
- - Typing hinting has been added to all functions and return objects for linting and IDE integration. Intellisense will now work now matter how nested the objects are.
- - Docstrings have been added to each function (documentation copied from mql5.com). Docs can now be accessed on the fly in the IDE. For example: `Ctrl+Q` in pycharm.
+ - Typing hinting has been added to all functions and return objects for linting and IDE integration. Intellisense will now work now matter how nested the objects are. ![alt text][intellisence_screen]
+ - Docstrings have been added to each function (documentation copied from mql5.com). Docs can now be accessed on the fly in the IDE. For example: `Ctrl+Q` in pycharm. ![alt text][docs_screen]
  - All params can now be called by keyword. No more positional only args.
  - Testing included compliments of `pytest`
  - A new context manager has been added to provide a more pythonic interface to the setup and tear-down of the terminal connection. The use of this context-manager can do the following: 
@@ -23,6 +23,8 @@
 The `MetaTrader5` dependency sometimes has issues installing with the `pip` version that automatically gets packaged inside of the `virualenv` environment. If cannot install `MetaTrader5` then you need to update `pip` inside of the virtualenv. From the command line within the virual environment use:
 
    (inside virtualenv):easy_install -U pip
+   
+
 
 
 # Import  
@@ -38,3 +40,6 @@ to:
 
 The `connected` function returns a context manager which performs all setup and tear-down and ensures that `mt5.shutdown()` is always called. 
 
+
+[intellisence_screen]: ./images/intellisense_working.jpg "intellisence example"
+[docs_screen]: ./images/docs_screen.jpg "quick docs example"
