@@ -1,6 +1,5 @@
-from .types import *
-from .core import *
 from .const import *
+from .core import *
 
 
 # class CSymbolInfo:
@@ -22,7 +21,6 @@ class Trade:
         if symbol:
             self.symbol = symbol
 
-
     @property
     def magic(self) -> int:
         return self._magic
@@ -38,7 +36,7 @@ class Trade:
     @symbol.setter
     def symbol(self, new_symbol):
         if isinstance(new_symbol, str):
-            self._symbol= symbol_info(new_symbol)
+            self._symbol = symbol_info(new_symbol)
         elif isinstance(new_symbol, SymbolInfo):
             self._symbol = new_symbol
         else:

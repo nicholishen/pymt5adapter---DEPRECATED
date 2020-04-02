@@ -3,6 +3,8 @@ import itertools
 import pytest
 
 from .context import pymt5adapter as mt5
+from pymt5adapter.state import global_state as state
+
 
 
 
@@ -39,14 +41,21 @@ def test_trade_class(connected):
         orig_req = Trade().setup('EPM20', 12345).market_buy(1).request
         print(orig_req)
 
+def test_borg_state_class():
+    from pymt5adapter.state import _GlobalState
+    s1 = _GlobalState()
+    s2 = _GlobalState()
+    s1.raise_on_errors = True
+    s2.raise_on_errors = False
+    assert not s1.raise_on_errors
 
 def test_mt5_connection_context():
-    assert not mt5.globals.is_global_debugging()
-    assert not mt5.globals.is_global_raise()
-    connection = mt5.connected(raise_on_error=True, debug_logging=True)
+    assert not state.global_debugging
+    assert not state.raise_on_errors
+    connection = mt5.connected(raise_on_error=True)
     with connection:
-        assert mt5.globals.is_global_debugging()
-        assert mt5.globals.is_global_raise()
+        assert state.global_debugging
+        assert state.raise_on_errors
         try:
             x = mt5.history_deals_get("sadf", "asdf")
         except mt5.MT5Error as e:
@@ -70,6 +79,7 @@ def test_package_version():
     pattern = re.compile(r'^\d+\.\d+\.\d+$')
     assert isinstance(version := mt5.__version__, str)
     assert pattern.match(version)
+
 
 
 def test_terminal_version(connected):
@@ -208,12 +218,18 @@ def test_consistency_for_empty_data_returns(connected):
 
 def test_copy_ticks_range(connected):
     from datetime import datetime, timedelta
-    time_to = datetime.utcnow()
+    import time
+    time_to = datetime.now()
     time_from = time_to - timedelta(minutes=3)
     with connected:
-        ticks = mt5.copy_ticks_range("EPM20", time_from, time_to, mt5.COPY_TICKS_ALL)
+        for i in range(20):
+            ticks = mt5.copy_ticks_range("USDJPY", time_from, time_to, mt5.COPY_TICKS_ALL)
+            if len(ticks) > 0:
+                break
+            time.sleep(1)
         assert mt5.last_error()[0] == mt5.RES_S_OK
         assert len(ticks) > 0
+
 
 
 

@@ -1,4 +1,3 @@
-import contextlib
 import functools
 from datetime import datetime
 
@@ -6,8 +5,10 @@ import MetaTrader5 as _mt5
 import numpy
 
 from . import const
-from . import globals
 from . import helpers
+from .helpers import _args_to_str
+from .helpers import _is_rates_array
+from .state import global_state as _state
 from .types import *
 
 
@@ -19,86 +20,19 @@ def _context_manager_modified(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         result = f(*args, **kwargs)
-        if globals.is_global_force_namedtuple():
-            if helpers._is_rates_array(result):
+        if _state.force_namedtuple:
+            if _is_rates_array(result):
                 result = [Rate(*r) for r in result]
-        if globals.is_global_debugging():  # and not result:
-            call_sig = f"{f.__name__}({helpers._args_to_str(args, kwargs)})"
-            globals.GLOBAL_LOG(f"[{call_sig}][{last_error()}][{str(result)[:80]}]")
-        if globals.is_global_raise():
+        if _state.global_debugging:  # and not result:
+            call_sig = f"{f.__name__}({_args_to_str(args, kwargs)})"
+            _state.log(f"[{call_sig}][{last_error()}][{str(result)[:80]}]")
+        if _state.raise_on_errors:
             error_code, description = last_error()
             if error_code != const.RES_S_OK:
                 raise MT5Error(error_code, description)
         return result
 
     return wrapper
-
-
-@contextlib.contextmanager
-def connected(*,
-              path: str = None,
-              portable: bool = None,
-              server: str = None,
-              login: int = None,
-              password: str = None,
-              timeout: int = None,
-              ensure_trade_enabled: bool = False,
-              enable_real_trading: bool = False,
-              logger: Callable[[str], None] = None,
-              raise_on_error: bool = False,
-              debug_logging: bool = False,
-              force_named_tuple: bool = False,
-              **kwargs
-              ) -> None:
-    """Context manager for managing the connection with a MT5 terminal using the python ``with`` statement.
-
-    :param path:  Path to terminal
-    :param portable: Load terminal in portable mode
-    :param server:  Server name
-    :param login:  Account login number
-    :param password:  Account password
-    :param timeout: Connection init timeout
-    :param ensure_trade_enabled: Ensure that auto-trading is enabled
-    :param enable_real_trading:  Must be explicitly set to True to run on a live account
-    :param logger: Logging function. Will pass connection status messages to this function
-    :param raise_on_error: bool - Raise Mt5Error Exception when the last_error() result of a function is not RES_S_OK
-    :param debug_logging: Logs each function call that results in an error or empty data return
-    :param force_named_tuple:
-    :param kwargs:
-    :return: None
-
-    Note:
-        The param ``enable_real_trading`` must be set to True to work on live accounts.
-    """
-    globals.set_global_debugging(debug_logging)
-    globals.set_global_raise(raise_on_error)
-    globals.set_global_logger(logger)
-    globals.set_global_force_namedtuple(force_named_tuple)
-    log = globals.GLOBAL_LOG
-    try:
-        args = helpers._clean_args(locals().copy())
-        mt5_keys = "path portable server login password timeout".split()
-        mt5_kwargs = {k: v for k, v in args.items() if k in mt5_keys}
-        if not initialize(**mt5_kwargs):
-            raise MT5Error(*last_error())
-        elif debug_logging:
-            log("MT5 connection has been initialized.")
-
-        is_real = account_info().trade_mode == const.ACCOUNT_TRADE_MODE_REAL
-        if is_real and not enable_real_trading:
-            raise MT5Error(
-                const.RES_X_REAL_ACCOUNT_DISABLED,
-                "REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER")
-        if ensure_trade_enabled and not terminal_info().trade_allowed:
-            if debug_logging:
-                log("Failed to initialize because auto-trade is disabled in terminal.")
-            raise MT5Error(const.RES_X_AUTO_TRADE_DISABLED, "Terminal Auto-Trading is disabled.")
-        yield
-    finally:
-        shutdown()
-        # _set_globals_defaults()
-        if debug_logging:
-            log("MT5 connection has been shutdown.")
 
 
 @_context_manager_modified
