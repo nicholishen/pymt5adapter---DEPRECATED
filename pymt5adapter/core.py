@@ -1,416 +1,33 @@
-"""
-MT5 adaptor by nicholishen
-"""
 import contextlib
 import functools
-from collections import namedtuple
 from datetime import datetime
-from typing import Callable
-from typing import Tuple
-from typing import Union, Iterable
 
 import MetaTrader5 as _mt5
 import numpy
-from packaging.version import parse as parse_version
 
-__version__ = _mt5.__version__
-# ONLY use package versions more recent than...
-assert parse_version(__version__) >= parse_version('5.0.31')
-__author__ = _mt5.__author__
-
-# timeframes
-TIMEFRAME_M1 = 1
-TIMEFRAME_M2 = 2
-TIMEFRAME_M3 = 3
-TIMEFRAME_M4 = 4
-TIMEFRAME_M5 = 5
-TIMEFRAME_M6 = 6
-TIMEFRAME_M10 = 10
-TIMEFRAME_M12 = 12
-TIMEFRAME_M15 = 15
-TIMEFRAME_M20 = 20
-TIMEFRAME_M30 = 30
-TIMEFRAME_H1 = 1 | 0x4000
-TIMEFRAME_H2 = 2 | 0x4000
-TIMEFRAME_H4 = 4 | 0x4000
-TIMEFRAME_H3 = 3 | 0x4000
-TIMEFRAME_H6 = 6 | 0x4000
-TIMEFRAME_H8 = 8 | 0x4000
-TIMEFRAME_H12 = 12 | 0x4000
-TIMEFRAME_D1 = 24 | 0x4000
-TIMEFRAME_W1 = 1 | 0x8000
-TIMEFRAME_MN1 = 1 | 0xC000
-# tick copy flags
-COPY_TICKS_ALL = -1
-COPY_TICKS_INFO = 1
-COPY_TICKS_TRADE = 2
-# tick flags
-TICK_FLAG_BID = 0x02
-TICK_FLAG_ASK = 0x04
-TICK_FLAG_LAST = 0x08
-TICK_FLAG_VOLUME = 0x10
-TICK_FLAG_BUY = 0x20
-TICK_FLAG_SELL = 0x40
-# position type, ENUM_POSITION_TYPE
-POSITION_TYPE_BUY = 0  # Buy
-POSITION_TYPE_SELL = 1  # Sell
-# position reason, ENUM_POSITION_REASON
-POSITION_REASON_CLIENT = 0  # The position was opened as a result of activation of an order placed from a desktop terminal
-POSITION_REASON_MOBILE = 1  # The position was opened as a result of activation of an order placed from a mobile application
-POSITION_REASON_WEB = 2  # The position was opened as a result of activation of an order placed from the web platform
-POSITION_REASON_EXPERT = 3  # The position was opened as a result of activation of an order placed from an MQL5 program, i.e. an Expert Advisor or a script
-# order types, ENUM_ORDER_TYPE
-ORDER_TYPE_BUY = 0  # Market Buy order
-ORDER_TYPE_SELL = 1  # Market Sell order
-ORDER_TYPE_BUY_LIMIT = 2  # Buy Limit pending order
-ORDER_TYPE_SELL_LIMIT = 3  # Sell Limit pending order
-ORDER_TYPE_BUY_STOP = 4  # Buy Stop pending order
-ORDER_TYPE_SELL_STOP = 5  # Sell Stop pending order
-ORDER_TYPE_BUY_STOP_LIMIT = 6  # Upon reaching the order price, a pending Buy Limit order is placed at the StopLimit price
-ORDER_TYPE_SELL_STOP_LIMIT = 7  # Upon reaching the order price, a pending Sell Limit order is placed at the StopLimit price
-ORDER_TYPE_CLOSE_BY = 8  # Order to close a position by an opposite one
-# order state, ENUM_ORDER_STATE
-ORDER_STATE_STARTED = 0  # Order checked, but not yet accepted by broker
-ORDER_STATE_PLACED = 1  # Order accepted
-ORDER_STATE_CANCELED = 2  # Order canceled by client
-ORDER_STATE_PARTIAL = 3  # Order partially executed
-ORDER_STATE_FILLED = 4  # Order fully executed
-ORDER_STATE_REJECTED = 5  # Order rejected
-ORDER_STATE_EXPIRED = 6  # Order expired
-ORDER_STATE_REQUEST_ADD = 7  # Order is being registered (placing to the trading system)
-ORDER_STATE_REQUEST_MODIFY = 8  # Order is being modified (changing its parameters)
-ORDER_STATE_REQUEST_CANCEL = 9  # Order is being deleted (deleting from the trading system)
-# ENUM_ORDER_TYPE_FILLING
-ORDER_FILLING_FOK = 0
-ORDER_FILLING_IOC = 1
-ORDER_FILLING_RETURN = 2
-# ENUM_ORDER_TYPE_TIME
-ORDER_TIME_GTC = 0  # Good till cancel order
-ORDER_TIME_DAY = 1  # Good till current trade day order
-ORDER_TIME_SPECIFIED = 2  # Good till expired order
-ORDER_TIME_SPECIFIED_DAY = 3  # The order will be effective till 23:59:59 of the specified day. If this time is outside a trading session, the order expires in the nearest trading time.
-# ENUM_ORDER_REASON
-ORDER_REASON_CLIENT = 0  # The order was placed from a desktop terminal
-ORDER_REASON_MOBILE = 1  # The order was placed from a mobile application
-ORDER_REASON_WEB = 2  # The order was placed from a web platform
-ORDER_REASON_EXPERT = 3  # The order was placed from an MQL5-program, i.e. by an Expert Advisor or a script
-ORDER_REASON_SL = 4  # The order was placed as a result of Stop Loss activation
-ORDER_REASON_TP = 5  # The order was placed as a result of Take Profit activation
-ORDER_REASON_SO = 6  # The order was placed as a result of the Stop Out event
-# deal types, ENUM_DEAL_TYPE
-DEAL_TYPE_BUY = 0  # Buy
-DEAL_TYPE_SELL = 1  # Sell
-DEAL_TYPE_BALANCE = 2  # Balance
-DEAL_TYPE_CREDIT = 3  # Credit
-DEAL_TYPE_CHARGE = 4  # Additional charge
-DEAL_TYPE_CORRECTION = 5  # Correction
-DEAL_TYPE_BONUS = 6  # Bonus
-DEAL_TYPE_COMMISSION = 7  # Additional commission
-DEAL_TYPE_COMMISSION_DAILY = 8  # Daily commission
-DEAL_TYPE_COMMISSION_MONTHLY = 9  # Monthly commission
-DEAL_TYPE_COMMISSION_AGENT_DAILY = 10  # Daily agent commission
-DEAL_TYPE_COMMISSION_AGENT_MONTHLY = 11  # Monthly agent commission
-DEAL_TYPE_INTEREST = 12  # Interest rate
-DEAL_TYPE_BUY_CANCELED = 13  # Canceled buy deal.
-DEAL_TYPE_SELL_CANCELED = 14  # Canceled sell deal.
-DEAL_DIVIDEND = 15  # Dividend operations
-DEAL_DIVIDEND_FRANKED = 16  # Franked (non-taxable) dividend operations
-DEAL_TAX = 17  # Tax charges
-# ENUM_DEAL_ENTRY
-DEAL_ENTRY_IN = 0  # Entry in
-DEAL_ENTRY_OUT = 1  # Entry out
-DEAL_ENTRY_INOUT = 2  # Reverse
-DEAL_ENTRY_OUT_BY = 3  # Close a position by an opposite one
-# ENUM_DEAL_REASON
-DEAL_REASON_CLIENT = 0  # The deal was executed as a result of activation of an order placed from a desktop terminal
-DEAL_REASON_MOBILE = 1  # The deal was executed as a result of activation of an order placed from a mobile application
-DEAL_REASON_WEB = 2  # The deal was executed as a result of activation of an order placed from the web platform
-DEAL_REASON_EXPERT = 3  # The deal was executed as a result of activation of an order placed from an MQL5 program, i.e. an Expert Advisor or a script
-DEAL_REASON_SL = 4  # The deal was executed as a result of Stop Loss activation
-DEAL_REASON_TP = 5  # The deal was executed as a result of Take Profit activation
-DEAL_REASON_SO = 6  # The deal was executed as a result of the Stop Out event
-DEAL_REASON_ROLLOVER = 7  # The deal was executed due to a rollover
-DEAL_REASON_VMARGIN = 8  # The deal was executed after charging the variation margin
-DEAL_REASON_SPLIT = 9  # The deal was executed after the split (price reduction) of an instrument, which had an open position during split announcement
-# ENUM_TRADE_REQUEST_ACTIONS, Trade Operation Types
-TRADE_ACTION_DEAL = 1  # Place a trade order for an immediate execution with the specified parameters (market order)
-TRADE_ACTION_PENDING = 5  # Place a trade order for the execution under specified conditions (pending order)
-TRADE_ACTION_SLTP = 6  # Modify Stop Loss and Take Profit values of an opened position
-TRADE_ACTION_MODIFY = 7  # Modify the parameters of the order placed previously
-TRADE_ACTION_REMOVE = 8  # Delete the pending order placed previously
-TRADE_ACTION_CLOSE_BY = 10  # Close a position by an opposite one
-# ENUM_SYMBOL_CHART_MODE
-SYMBOL_CHART_MODE_BID = 0
-SYMBOL_CHART_MODE_LAST = 1
-# ENUM_SYMBOL_CALC_MODE
-SYMBOL_CALC_MODE_FOREX = 0
-SYMBOL_CALC_MODE_FUTURES = 1
-SYMBOL_CALC_MODE_CFD = 2
-SYMBOL_CALC_MODE_CFDINDEX = 3
-SYMBOL_CALC_MODE_CFDLEVERAGE = 4
-SYMBOL_CALC_MODE_FOREX_NO_LEVERAGE = 5
-SYMBOL_CALC_MODE_EXCH_STOCKS = 32
-SYMBOL_CALC_MODE_EXCH_FUTURES = 33
-SYMBOL_CALC_MODE_EXCH_OPTIONS = 34
-SYMBOL_CALC_MODE_EXCH_OPTIONS_MARGIN = 36
-SYMBOL_CALC_MODE_EXCH_BONDS = 37
-SYMBOL_CALC_MODE_EXCH_STOCKS_MOEX = 38
-SYMBOL_CALC_MODE_EXCH_BONDS_MOEX = 39
-SYMBOL_CALC_MODE_SERV_COLLATERAL = 64
-# ENUM_SYMBOL_TRADE_MODE
-SYMBOL_TRADE_MODE_DISABLED = 0
-SYMBOL_TRADE_MODE_LONGONLY = 1
-SYMBOL_TRADE_MODE_SHORTONLY = 2
-SYMBOL_TRADE_MODE_CLOSEONLY = 3
-SYMBOL_TRADE_MODE_FULL = 4
-# ENUM_SYMBOL_TRADE_EXECUTION
-SYMBOL_TRADE_EXECUTION_REQUEST = 0
-SYMBOL_TRADE_EXECUTION_INSTANT = 1
-SYMBOL_TRADE_EXECUTION_MARKET = 2
-SYMBOL_TRADE_EXECUTION_EXCHANGE = 3
-# ENUM_SYMBOL_SWAP_MODE
-SYMBOL_SWAP_MODE_DISABLED = 0
-SYMBOL_SWAP_MODE_POINTS = 1
-SYMBOL_SWAP_MODE_CURRENCY_SYMBOL = 2
-SYMBOL_SWAP_MODE_CURRENCY_MARGIN = 3
-SYMBOL_SWAP_MODE_CURRENCY_DEPOSIT = 4
-SYMBOL_SWAP_MODE_INTEREST_CURRENT = 5
-SYMBOL_SWAP_MODE_INTEREST_OPEN = 6
-SYMBOL_SWAP_MODE_REOPEN_CURRENT = 7
-SYMBOL_SWAP_MODE_REOPEN_BID = 8
-# ENUM_DAY_OF_WEEK
-DAY_OF_WEEK_SUNDAY = 0
-DAY_OF_WEEK_MONDAY = 1
-DAY_OF_WEEK_TUESDAY = 2
-DAY_OF_WEEK_WEDNESDAY = 3
-DAY_OF_WEEK_THURSDAY = 4
-DAY_OF_WEEK_FRIDAY = 5
-DAY_OF_WEEK_SATURDAY = 6
-# ENUM_SYMBOL_ORDER_GTC_MODE
-SYMBOL_ORDERS_GTC = 0
-SYMBOL_ORDERS_DAILY = 1
-SYMBOL_ORDERS_DAILY_NO_STOPS = 2
-# ENUM_SYMBOL_OPTION_RIGHT
-SYMBOL_OPTION_RIGHT_CALL = 0
-SYMBOL_OPTION_RIGHT_PUT = 1
-# ENUM_SYMBOL_OPTION_MODE
-SYMBOL_OPTION_MODE_EUROPEAN = 0
-SYMBOL_OPTION_MODE_AMERICAN = 1
-# ENUM_ACCOUNT_TRADE_MODE
-ACCOUNT_TRADE_MODE_DEMO = 0
-ACCOUNT_TRADE_MODE_CONTEST = 1
-ACCOUNT_TRADE_MODE_REAL = 2
-# ENUM_ACCOUNT_STOPOUT_MODE
-ACCOUNT_STOPOUT_MODE_PERCENT = 0
-ACCOUNT_STOPOUT_MODE_MONEY = 1
-# ENUM_ACCOUNT_MARGIN_MODE
-ACCOUNT_MARGIN_MODE_RETAIL_NETTING = 0
-ACCOUNT_MARGIN_MODE_EXCHANGE = 1
-ACCOUNT_MARGIN_MODE_RETAIL_HEDGING = 2
-# order send/check return codes
-TRADE_RETCODE_REQUOTE = 10004
-TRADE_RETCODE_REJECT = 10006
-TRADE_RETCODE_CANCEL = 10007
-TRADE_RETCODE_PLACED = 10008
-TRADE_RETCODE_DONE = 10009
-TRADE_RETCODE_DONE_PARTIAL = 10010
-TRADE_RETCODE_ERROR = 10011
-TRADE_RETCODE_TIMEOUT = 10012
-TRADE_RETCODE_INVALID = 10013
-TRADE_RETCODE_INVALID_VOLUME = 10014
-TRADE_RETCODE_INVALID_PRICE = 10015
-TRADE_RETCODE_INVALID_STOPS = 10016
-TRADE_RETCODE_TRADE_DISABLED = 10017
-TRADE_RETCODE_MARKET_CLOSED = 10018
-TRADE_RETCODE_NO_MONEY = 10019
-TRADE_RETCODE_PRICE_CHANGED = 10020
-TRADE_RETCODE_PRICE_OFF = 10021
-TRADE_RETCODE_INVALID_EXPIRATION = 10022
-TRADE_RETCODE_ORDER_CHANGED = 10023
-TRADE_RETCODE_TOO_MANY_REQUESTS = 10024
-TRADE_RETCODE_NO_CHANGES = 10025
-TRADE_RETCODE_SERVER_DISABLES_AT = 10026
-TRADE_RETCODE_CLIENT_DISABLES_AT = 10027
-TRADE_RETCODE_LOCKED = 10028
-TRADE_RETCODE_FROZEN = 10029
-TRADE_RETCODE_INVALID_FILL = 10030
-TRADE_RETCODE_CONNECTION = 10031
-TRADE_RETCODE_ONLY_REAL = 10032
-TRADE_RETCODE_LIMIT_ORDERS = 10033
-TRADE_RETCODE_LIMIT_VOLUME = 10034
-TRADE_RETCODE_INVALID_ORDER = 10035
-TRADE_RETCODE_POSITION_CLOSED = 10036
-TRADE_RETCODE_INVALID_CLOSE_VOLUME = 10038
-TRADE_RETCODE_CLOSE_ORDER_EXIST = 10039
-TRADE_RETCODE_LIMIT_POSITIONS = 10040
-TRADE_RETCODE_REJECT_CANCEL = 10041
-TRADE_RETCODE_LONG_ONLY = 10042
-TRADE_RETCODE_SHORT_ONLY = 10043
-TRADE_RETCODE_CLOSE_ONLY = 10044
-TRADE_RETCODE_FIFO_CLOSE = 10045
-# functio error codes, last_error()
-
-RES_S_OK = 1  # generic success
-RES_E_FAIL = -1  # generic fail
-RES_E_INVALID_PARAMS = -2  # invalid arguments/parameters
-RES_E_NO_MEMORY = -3  # no memory condition
-RES_E_NOT_FOUND = -4  # no history
-RES_E_INVALID_VERSION = -5  # invalid version
-RES_E_AUTH_FAILED = -6  # authorization failed
-RES_E_UNSUPPORTED = -7  # unsupported method
-RES_E_AUTO_TRADING_DISABLED = -8  # auto-trading disabled
-RES_E_INTERNAL_FAIL = -10000  # internal IPC general error
-RES_E_INTERNAL_FAIL_SEND = -10001  # internal IPC send failed
-RES_E_INTERNAL_FAIL_RECV = -10002  # internal IPC recv failed
-RES_E_INTERNAL_FAIL_INIT = -10003  # internal IPC initialization fail
-RES_E_INTERNAL_FAIL_CONN = -10004  # internal IPC no ipc
-RES_E_INTERNAL_FAIL_TIMEOUT = -10005  # internal timeout
-# CUSTOM ERROR CODES ----------------------------------------------------------------------
-RES_X_AUTO_TRADE_DISABLED = -20000  # terminal auto-trading is disabled
-RES_X_REAL_ACCOUNT_DISABLED = -20001  # REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER
-
-# MT5 namedtuple objects for typing
-Rate = namedtuple("Rate", "time open high low close tick_volume spread real_volume")
-Tick = _mt5.Tick
-AccountInfo = _mt5.AccountInfo
-SymbolInfo = _mt5.SymbolInfo
-TerminalInfo = _mt5.TerminalInfo
-OrderCheckResult = _mt5.OrderCheckResult
-OrderSendResult = _mt5.OrderSendResult
-TradeOrder = _mt5.TradeOrder
-TradeDeal = _mt5.TradeDeal
-TradeRequest = _mt5.TradeRequest
-TradePosition = _mt5.TradePosition
-
-__GLOBAL_FORCE_NAMEDTUPLE = False
-__GLOBAL_RAISE_FLAG = False
-__GLOBAL_DEBUG_LOGGING_FLAG = False
-__GLOBAL_LOG = print
-
-_DEFAULT_FROM_DATETIME = datetime(2010, 1, 1)
-_DEFAULT_MAX_BARS = 10_000
+from . import const
+from . import globals
+from . import helpers
+from .types import *
 
 
 class MT5Error(Exception):
     pass
 
 
-def _is_global_force_namedtuple():
-    return __GLOBAL_FORCE_NAMEDTUPLE
-
-
-def _set_global_force_namedtuple(flag: bool = False):
-    global __GLOBAL_FORCE_NAMEDTUPLE
-    __GLOBAL_FORCE_NAMEDTUPLE = flag
-
-
-def _is_global_debugging():
-    return __GLOBAL_DEBUG_LOGGING_FLAG
-
-
-def _set_global_debugging(flag: bool = False):
-    global __GLOBAL_DEBUG_LOGGING_FLAG
-    __GLOBAL_DEBUG_LOGGING_FLAG = flag
-
-
-def _is_global_raise():
-    return __GLOBAL_RAISE_FLAG
-
-
-def _set_global_raise(flag: bool = False):
-    global __GLOBAL_RAISE_FLAG
-    __GLOBAL_RAISE_FLAG = flag
-
-
-def _set_global_logger(logger: Callable = None):
-    global __GLOBAL_LOG
-    __GLOBAL_LOG = logger or print
-
-
-def _set_globals_defaults():
-    _set_global_raise()
-    _set_global_debugging()
-    _set_global_logger()
-    _set_global_force_namedtuple()
-
-
-def _clean_args(kwargs: dict) -> dict:
-    kwargs.pop('kwargs', None)
-    return {k: v for k, v in kwargs.items() if v is not None}
-
-
-def _reduce_dict(d: dict, keys: Iterable) -> dict:
-    return {k: v for k, v in d.items() if k in keys and v is not None}
-
-
-def _args_to_str(args: tuple, kwargs: dict):
-    ar = ', '.join(map(str, args))
-    kw = ', '.join(f"{k}={v}" for k, v in kwargs.items())
-    return ar + (', ' if ar and kw else '') + kw
-
-
-def _is_rates_array(array):
-    try:
-        rate = array[0]
-        return type(rate) is tuple and len(rate) == 8
-    except:
-        return False
-
-
-def _get_ticket_type_stuff(func, *, symbol, group, ticket, function):
-    d = locals().copy()
-    kw = _reduce_dict(d, ['symbol', 'group', 'ticket'])
-    items = func(**kw)
-    if function:
-        items = tuple(filter(function, items))
-    return items if items is not None else tuple()
-
-
-def _get_history_type_stuff(func, args):
-    args = _clean_args(args)
-    function = args.pop('function', None)
-    datetime_from = args.get('datetime_from', None)
-    datetime_to = args.get('datetime_to', None)
-    if not args:
-        datetime_from = datetime(2000, 1, 1)
-        datetime_to = datetime.utcnow()
-    if datetime_from is not None and datetime_to is not None:
-        deals = func(datetime_from, datetime_to, **args)
-    else:
-        deals = func(**args)
-    if function:
-        deals = tuple(filter(function, deals))
-    return deals if deals is not None else tuple()
-
-
-def _do_trade_action(func, args):
-    request = args.pop('request', {})
-    cleaned = _clean_args(args)
-    order_request = {**request, **cleaned}
-    return func(order_request)
-
-
-def remap(item):
-    if hasattr(item, '_asdict'):
-        return item._asdict()
-    if type(item) is tuple:
-        return tuple(remap(x) for x in item)
-    return item
-
-
 def _context_manager_modified(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         result = f(*args, **kwargs)
-        if _is_global_force_namedtuple():
-            if _is_rates_array(result):
+        if globals.is_global_force_namedtuple():
+            if helpers._is_rates_array(result):
                 result = [Rate(*r) for r in result]
-        if _is_global_debugging():  # and not result:
-            call_sig = f"{f.__name__}({_args_to_str(args, kwargs)})"
-            __GLOBAL_LOG(f"[{call_sig}][{last_error()}][{str(result)[:80]}]")
-        if _is_global_raise():
+        if globals.is_global_debugging():  # and not result:
+            call_sig = f"{f.__name__}({helpers._args_to_str(args, kwargs)})"
+            globals.GLOBAL_LOG(f"[{call_sig}][{last_error()}][{str(result)[:80]}]")
+        if globals.is_global_raise():
             error_code, description = last_error()
-            if error_code != RES_S_OK:
+            if error_code != const.RES_S_OK:
                 raise MT5Error(error_code, description)
         return result
 
@@ -426,11 +43,11 @@ def connected(*,
               password: str = None,
               timeout: int = None,
               ensure_trade_enabled: bool = False,
-              enable_real_trading:bool=False,
+              enable_real_trading: bool = False,
               logger: Callable[[str], None] = None,
-              raise_on_error:bool=False,
-              debug_logging:bool=False,
-              force_named_tuple:bool=False,
+              raise_on_error: bool = False,
+              debug_logging: bool = False,
+              force_named_tuple: bool = False,
               **kwargs
               ) -> None:
     """Context manager for managing the connection with a MT5 terminal using the python ``with`` statement.
@@ -449,17 +66,17 @@ def connected(*,
     :param force_named_tuple:
     :param kwargs:
     :return: None
-    
+
     Note:
-        The param ``enable_real_trading`` must be set to True to work on live accounts. 
+        The param ``enable_real_trading`` must be set to True to work on live accounts.
     """
-    _set_global_debugging(debug_logging)
-    _set_global_raise(raise_on_error)
-    _set_global_logger(logger)
-    _set_global_force_namedtuple(force_named_tuple)
-    log = __GLOBAL_LOG
+    globals.set_global_debugging(debug_logging)
+    globals.set_global_raise(raise_on_error)
+    globals.set_global_logger(logger)
+    globals.set_global_force_namedtuple(force_named_tuple)
+    log = globals.GLOBAL_LOG
     try:
-        args = _clean_args(locals().copy())
+        args = helpers._clean_args(locals().copy())
         mt5_keys = "path portable server login password timeout".split()
         mt5_kwargs = {k: v for k, v in args.items() if k in mt5_keys}
         if not initialize(**mt5_kwargs):
@@ -467,15 +84,15 @@ def connected(*,
         elif debug_logging:
             log("MT5 connection has been initialized.")
 
-        is_real = account_info().trade_mode == ACCOUNT_TRADE_MODE_REAL
+        is_real = account_info().trade_mode == const.ACCOUNT_TRADE_MODE_REAL
         if is_real and not enable_real_trading:
             raise MT5Error(
-                RES_X_REAL_ACCOUNT_DISABLED,
+                const.RES_X_REAL_ACCOUNT_DISABLED,
                 "REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER")
         if ensure_trade_enabled and not terminal_info().trade_allowed:
             if debug_logging:
                 log("Failed to initialize because auto-trade is disabled in terminal.")
-            raise MT5Error(RES_X_AUTO_TRADE_DISABLED, "Terminal Auto-Trading is disabled.")
+            raise MT5Error(const.RES_X_AUTO_TRADE_DISABLED, "Terminal Auto-Trading is disabled.")
         yield
     finally:
         shutdown()
@@ -496,14 +113,15 @@ def initialize(path: str = None,
                ) -> bool:
     """Establish a connection with the MetaTrader 5 terminal. Call without parameters. The terminal for connection is found automatically.
 
-    :param portable:
     :param path:  Path to the metatrader.exe or metatrader64.exe file. Optional unnamed parameter. It is indicated first without a parameter name. If the path is not specified, the module attempts to find the executable file on its own.
     :param login: Connection timeout in milliseconds. Optional named parameter. If not specified, the value of 60 000 (60 seconds) is applied. If the connection is not established within the specified time, the call is forcibly terminated and the exception is generated.
     :param password: Trading account password. Optional named parameter. If the password is not set, the password saved in the terminal database is applied automatically.
     :param server: Trade server name. Optional named parameter. If no server is set, the last used server is applied automatically.
+    :param portable: Launch terminal in portable mode
+    :timeout: Number of milliseconds for timeout
     :return: Returns True in case of successful connection to the MetaTrader 5 terminal, otherwise - False.
     """
-    cleaned = _clean_args(locals().copy())
+    cleaned = helpers._clean_args(locals().copy())
     result = _mt5.initialize(**cleaned)
     return result
 
@@ -524,7 +142,7 @@ def login(login: int, *,
     :param kwargs:
     :return: True if success.
     """
-    args = _clean_args(locals().copy())
+    args = helpers._clean_args(locals().copy())
     login = args.pop('login')
     return _mt5.login(login, **args)
 
@@ -722,7 +340,7 @@ def copy_rates(symbol: str,
             if datetime_to is not None:
                 return _mt5.copy_rates_range(symbol, timeframe, datetime_from, datetime_to)
         if all(x is None for x in [datetime_from, datetime_to, start_pos, count]):
-            return _mt5.copy_rates_from_pos(symbol, timeframe, _DEFAULT_MAX_BARS, 0)
+            return _mt5.copy_rates_from_pos(symbol, timeframe, 3000, 0)
         return _mt5.copy_rates_from_pos(symbol, timeframe, start_pos, count)
     except SystemError:
         return None
@@ -807,7 +425,7 @@ def orders_get(symbol: str = None,
         The group parameter allows sorting out orders by symbols. '*' can be used at the beginning and the end of a string.
         The group parameter may contain several comma separated conditions. A condition can be set as a mask using '*'. The logical negation symbol '!' can be used for an exclusion. All conditions are applied sequentially, which means conditions of including to a group should be specified first followed by an exclusion condition. For example, group="*, !EUR" means that orders for all symbols should be selected first and the ones containing "EUR" in symbol names should be excluded afterwards.
     """
-    return _get_ticket_type_stuff(_mt5.orders_get, symbol=symbol, group=group, ticket=ticket, function=function)
+    return helpers._get_ticket_type_stuff(_mt5.orders_get, symbol=symbol, group=group, ticket=ticket, function=function)
 
 
 @_context_manager_modified
@@ -878,7 +496,7 @@ def order_check(request: dict = None,
     :param kwargs:
     :return: OrderSendResult namedtuple
     """
-    return _do_trade_action(_mt5.order_check, locals().copy())
+    return helpers._do_trade_action(_mt5.order_check, locals().copy())
 
 
 @_context_manager_modified
@@ -917,7 +535,7 @@ def order_send(request: dict = None,
     :param kwargs:
     :return: OrderSendResult namedtuple
     """
-    return _do_trade_action(_mt5.order_send, locals().copy())
+    return helpers._do_trade_action(_mt5.order_send, locals().copy())
 
 
 @_context_manager_modified
@@ -944,7 +562,7 @@ def positions_get(symbol: str = None,
     :param ticket:
     :return:
     """
-    return _get_ticket_type_stuff(_mt5.positions_get, symbol=symbol, group=group, ticket=ticket, function=function)
+    return helpers._get_ticket_type_stuff(_mt5.positions_get, symbol=symbol, group=group, ticket=ticket, function=function)
 
 
 @_context_manager_modified
@@ -969,7 +587,7 @@ def history_deals_get(datetime_from: datetime = None,
     :return: a tuple of TradeDeal objects
     """
     d = locals().copy()
-    return _get_history_type_stuff(_mt5.history_deals_get, d)
+    return helpers._get_history_type_stuff(_mt5.history_deals_get, d)
 
 
 @_context_manager_modified
@@ -1018,99 +636,4 @@ def history_orders_get(datetime_from: datetime = None,
     :return: a tuple of TradeOrder objects
     """
     d = locals().copy()
-    return _get_history_type_stuff(_mt5.history_orders_get, d)
-
-
-@_context_manager_modified
-def deal_from_send_result(result: OrderSendResult) -> Union[TradeDeal, None]:
-    """Get the TradeDeal from order send result.
-
-    :param result: OrderSendResult
-    :return: TradeDeal object or None
-    """
-    try:
-        return history_deals_get(ticket=result.deal)[0]
-    except:
-        return None
-
-
-@_context_manager_modified
-def position_from_send_result(result: OrderSendResult) -> Union[TradePosition, None]:
-    """Get the TradePosition from order send result.
-
-    :param result: OrderSendResult
-    :return: TradeDeal object or None
-    """
-    deal = deal_from_send_result(result)
-    try:
-        return positions_get(ticket=deal.position_id)[0]
-    except:
-        return None
-
-
-@_context_manager_modified
-def order_from_send_result(result: OrderSendResult) -> Union[TradeOrder, None]:
-    """Get the TradeOrder from order send result.
-
-    :param result: OrderSendResult
-    :return: TradeDeal object or None
-    """
-    try:
-        return orders_get(ticket=result.order)[0]
-    except:
-        return None
-
-
-if __name__ == "__main__":
-    import logging
-    from datetime import datetime, timedelta
-
-    logging.basicConfig(level=logging.DEBUG, format='%(relativeCreated)6d %(threadName)s %(message)s')
-    mt5_connected = connected(
-        timeout=1500,
-        ensure_trade_enabled=True,
-        raise_on_error=True,
-        debug_logging=True,
-        logger=logging.debug,
-        enable_real_trading=False,
-    )
-    time_to = datetime.utcnow()
-    time_from = time_to - timedelta(minutes=1)
-    symbol = "EURUSD"
-    with mt5_connected:
-        _ = login(26630503)
-        _ = version()
-        _ = last_error()
-        _ = account_info()
-        _ = terminal_info()
-        _ = symbols_total()
-        _ = symbols_get()
-        _ = symbol_info(symbol)
-        _ = symbol_info_tick(symbol)
-        _ = symbol_select(symbol, True)
-        _ = copy_rates_from(symbol, timeframe=TIMEFRAME_H1, datetime_from=time_from, count=10)
-        _ = copy_rates_from_pos(symbol, TIMEFRAME_H1, 100, 100)
-        _ = copy_rates_range(symbol, TIMEFRAME_H1, datetime_from=time_from, datetime_to=time_to)
-        _ = copy_rates(symbol, TIMEFRAME_H1, start_pos=0, count=10)
-        _ = copy_ticks_from(symbol, time_from, 100, COPY_TICKS_ALL)
-        _ = copy_ticks_range(symbol, time_from, time_to, COPY_TICKS_ALL)
-        _ = copy_ticks_range(symbol, time_to, time_from, COPY_TICKS_ALL)
-        _ = orders_total()
-        _ = orders_get()
-        _ = order_calc_margin(order_type=ORDER_TYPE_BUY, symbol=symbol, volume=1.0, price=symbol_info_tick(symbol).ask)
-        _ = order_calc_profit(order_type=ORDER_TYPE_BUY, symbol=symbol, volume=1.0,
-                              price_open=(ask := symbol_info_tick(symbol).ask), price_close=ask + 100)
-
-        request = dict(
-            action=TRADE_ACTION_DEAL, type=ORDER_TYPE_BUY, symbol=symbol,
-        )
-        _ = order_check(request=request, volume=1.0)
-        _ = order_send({})
-        _ = positions_total()
-        _ = positions_get()
-        _ = history_orders_total(datetime_from=time_from, datetime_to=time_to)
-        _ = history_orders_get(datetime_from=time_from, datetime_to=time_to)
-        _ = history_deals_total(datetime_from=time_from, datetime_to=time_to)
-        _ = history_deals_get(datetime_from=time_from, datetime_to=time_to)
-
-    # print(s[0])
+    return helpers._get_history_type_stuff(_mt5.history_orders_get, d)
