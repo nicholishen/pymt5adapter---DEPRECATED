@@ -1,6 +1,6 @@
 import itertools
 
-import mt5adapter as mt5
+import MetaTrader5 as mt5
 import pytest
 
 
@@ -150,6 +150,15 @@ def test_consistency_for_empty_data_returns():
     funcs = (mt5.positions_get, mt5.orders_get, mt5.history_orders_get, mt5.history_deals_get,)
     results = [f(ticket=0) for f in funcs]
     assert all_same_return_types(results)
+
+
+def test_copy_ticks_range():
+    from datetime import datetime, timedelta
+    time_to = datetime.utcnow()
+    time_from = time_to - timedelta(minutes=3)
+    ticks = mt5.copy_ticks_range("EPM20", time_from, time_to, mt5.COPY_TICKS_ALL)
+    assert mt5.last_error()[0] == mt5.RES_S_OK
+    assert len(ticks) > 0
 
 
 if __name__ == "__main__":

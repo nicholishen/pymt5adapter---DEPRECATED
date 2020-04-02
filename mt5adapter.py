@@ -3,18 +3,20 @@ MT5 adaptor by nicholishen
 """
 import contextlib
 import functools
-from typing import Tuple, Callable, Union
 from collections import namedtuple
 from datetime import datetime
+from typing import Callable
+from typing import Tuple
+from typing import Union, Iterable
 
-import MetaTrader5 as mt5
+import MetaTrader5 as _mt5
 import numpy
 from packaging.version import parse as parse_version
 
-__version__ = mt5.__version__
+__version__ = _mt5.__version__
 # ONLY use package versions more recent than...
 assert parse_version(__version__) >= parse_version('5.0.31')
-__author__ = mt5.__author__
+__author__ = _mt5.__author__
 
 # timeframes
 TIMEFRAME_M1 = 1
@@ -265,19 +267,20 @@ RES_E_INTERNAL_FAIL_CONN = -10004  # internal IPC no ipc
 RES_E_INTERNAL_FAIL_TIMEOUT = -10005  # internal timeout
 # CUSTOM ERROR CODES ----------------------------------------------------------------------
 RES_X_AUTO_TRADE_DISABLED = -20000  # terminal auto-trading is disabled
+RES_X_REAL_ACCOUNT_DISABLED = -20001  # REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER
 
 # MT5 namedtuple objects for typing
 Rate = namedtuple("Rate", "time open high low close tick_volume spread real_volume")
-Tick = mt5.Tick
-AccountInfo = mt5.AccountInfo
-SymbolInfo = mt5.SymbolInfo
-TerminalInfo = mt5.TerminalInfo
-OrderCheckResult = mt5.OrderCheckResult
-OrderSendResult = mt5.OrderSendResult
-TradeOrder = mt5.TradeOrder
-TradeDeal = mt5.TradeDeal
-TradeRequest = mt5.TradeRequest
-TradePosition = mt5.TradePosition
+Tick = _mt5.Tick
+AccountInfo = _mt5.AccountInfo
+SymbolInfo = _mt5.SymbolInfo
+TerminalInfo = _mt5.TerminalInfo
+OrderCheckResult = _mt5.OrderCheckResult
+OrderSendResult = _mt5.OrderSendResult
+TradeOrder = _mt5.TradeOrder
+TradeDeal = _mt5.TradeDeal
+TradeRequest = _mt5.TradeRequest
+TradePosition = _mt5.TradePosition
 
 __GLOBAL_FORCE_NAMEDTUPLE = False
 __GLOBAL_RAISE_FLAG = False
@@ -336,6 +339,10 @@ def _clean_args(kwargs: dict) -> dict:
     return {k: v for k, v in kwargs.items() if v is not None}
 
 
+def _reduce_dict(d: dict, keys: Iterable) -> dict:
+    return {k: v for k, v in d.items() if k in keys and v is not None}
+
+
 def _args_to_str(args: tuple, kwargs: dict):
     ar = ', '.join(map(str, args))
     kw = ', '.join(f"{k}={v}" for k, v in kwargs.items())
@@ -350,10 +357,10 @@ def _is_rates_array(array):
         return False
 
 
-def _get_ticket_type_stuff(func, symbol, group, ticket, function):
+def _get_ticket_type_stuff(func, *, symbol, group, ticket, function):
     d = locals().copy()
-    kw = {i: d[i] for i in ['group', 'ticket'] if d[i]}
-    items = func(symbol, **kw)
+    kw = _reduce_dict(d, ['symbol', 'group', 'ticket'])
+    items = func(**kw)
     if function:
         items = tuple(filter(function, items))
     return items if items is not None else tuple()
@@ -400,8 +407,7 @@ def _context_manager_modified(f):
                 result = [Rate(*r) for r in result]
         if _is_global_debugging():  # and not result:
             call_sig = f"{f.__name__}({_args_to_str(args, kwargs)})"
-            log = __GLOBAL_LOG
-            log(f"[{call_sig}][{last_error()}][{str(result)[:80]}]")
+            __GLOBAL_LOG(f"[{call_sig}][{last_error()}][{str(result)[:80]}]")
         if _is_global_raise():
             error_code, description = last_error()
             if error_code != RES_S_OK:
@@ -420,10 +426,11 @@ def connected(*,
               password: str = None,
               timeout: int = None,
               ensure_trade_enabled: bool = False,
+              enable_real_trading:bool=False,
               logger: Callable[[str], None] = None,
-              raise_on_error=False,
-              debug_logging=False,
-              force_named_tuple=False,
+              raise_on_error:bool=False,
+              debug_logging:bool=False,
+              force_named_tuple:bool=False,
               **kwargs
               ) -> None:
     """Context manager for managing the connection with a MT5 terminal using the python ``with`` statement.
@@ -435,12 +442,16 @@ def connected(*,
     :param password:  Account password
     :param timeout: Connection init timeout
     :param ensure_trade_enabled: Ensure that auto-trading is enabled
+    :param enable_real_trading:  Must be explicitly set to True to run on a live account
     :param logger: Logging function. Will pass connection status messages to this function
     :param raise_on_error: bool - Raise Mt5Error Exception when the last_error() result of a function is not RES_S_OK
     :param debug_logging: Logs each function call that results in an error or empty data return
     :param force_named_tuple:
     :param kwargs:
     :return: None
+    
+    Note:
+        The param ``enable_real_trading`` must be set to True to work on live accounts. 
     """
     _set_global_debugging(debug_logging)
     _set_global_raise(raise_on_error)
@@ -455,6 +466,12 @@ def connected(*,
             raise MT5Error(*last_error())
         elif debug_logging:
             log("MT5 connection has been initialized.")
+
+        is_real = account_info().trade_mode == ACCOUNT_TRADE_MODE_REAL
+        if is_real and not enable_real_trading:
+            raise MT5Error(
+                RES_X_REAL_ACCOUNT_DISABLED,
+                "REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER")
         if ensure_trade_enabled and not terminal_info().trade_allowed:
             if debug_logging:
                 log("Failed to initialize because auto-trade is disabled in terminal.")
@@ -462,7 +479,7 @@ def connected(*,
         yield
     finally:
         shutdown()
-        _set_globals_defaults()
+        # _set_globals_defaults()
         if debug_logging:
             log("MT5 connection has been shutdown.")
 
@@ -487,7 +504,7 @@ def initialize(path: str = None,
     :return: Returns True in case of successful connection to the MetaTrader 5 terminal, otherwise - False.
     """
     cleaned = _clean_args(locals().copy())
-    result = mt5.initialize(**cleaned)
+    result = _mt5.initialize(**cleaned)
     return result
 
 
@@ -509,7 +526,7 @@ def login(login: int, *,
     """
     args = _clean_args(locals().copy())
     login = args.pop('login')
-    return mt5.login(login, **args)
+    return _mt5.login(login, **args)
 
 
 @_context_manager_modified
@@ -518,7 +535,7 @@ def shutdown() -> None:
 
     :return: None
     """
-    return mt5.shutdown()
+    return _mt5.shutdown()
 
 
 @_context_manager_modified
@@ -527,7 +544,7 @@ def version() -> Tuple[int, int, str]:
 
     :return: Returns the MetaTrader 5 terminal version, build and release date. Return None in case of an error. The info on the error can be obtained using last_error().
     """
-    return mt5.version()
+    return _mt5.version()
 
 
 def last_error() -> Tuple[int, str]:
@@ -536,7 +553,7 @@ def last_error() -> Tuple[int, str]:
 
     :return: Return the last error code and description as a tuple.
     """
-    return mt5.last_error()
+    return _mt5.last_error()
 
 
 @_context_manager_modified
@@ -545,7 +562,7 @@ def account_info() -> AccountInfo:
 
     :return: Return info in the form of a named tuple structure (namedtuple). Return None in case of an error. The info on the error can be obtained using last_error().
     """
-    return mt5.account_info()
+    return _mt5.account_info()
 
 
 @_context_manager_modified
@@ -555,7 +572,7 @@ def terminal_info() -> TerminalInfo:
 
     :return: Return info in the form of a named tuple structure (namedtuple). Return None in case of an error. The info on the error can be obtained using last_error().
     """
-    return mt5.terminal_info()
+    return _mt5.terminal_info()
 
 
 @_context_manager_modified
@@ -564,7 +581,7 @@ def symbols_total() -> int:
 
     :return: <int>
     """
-    return mt5.symbols_total()
+    return _mt5.symbols_total()
 
 
 @_context_manager_modified
@@ -582,7 +599,7 @@ def symbols_get(group=None,
     :param kwargs:
     :return: A tuple of SymbolInfo objects
     """
-    symbols = mt5.symbols_get(group=group) if group else mt5.symbols_get()
+    symbols = _mt5.symbols_get(group=group) if group else _mt5.symbols_get()
     if function:
         symbols = tuple(filter(function, symbols))
     return symbols
@@ -595,7 +612,7 @@ def symbol_info(symbol: str) -> SymbolInfo:
     :param symbol:
     :return: Return info in the form of a named tuple structure (namedtuple). Return None in case of an error. The info on the error can be obtained using last_error().
     """
-    return mt5.symbol_info(symbol)
+    return _mt5.symbol_info(symbol)
 
 
 @_context_manager_modified
@@ -605,7 +622,7 @@ def symbol_info_tick(symbol: str) -> Tick:
     :param symbol:
     :return:
     """
-    return mt5.symbol_info_tick(symbol)
+    return _mt5.symbol_info_tick(symbol)
 
 
 @_context_manager_modified
@@ -616,7 +633,7 @@ def symbol_select(symbol: str, enable: bool = True) -> bool:
     :param enable:
     :return: True if successful, otherwise – False.
     """
-    return mt5.symbol_select(symbol, enable)
+    return _mt5.symbol_select(symbol, enable)
 
 
 @_context_manager_modified
@@ -634,7 +651,7 @@ def copy_rates_from(symbol: str,
     :return: Returns bars as the numpy array with the named time, open, high, low, close, tick_volume, spread and real_volume columns. Return None in case of an error. The info on the error can be obtained using last_error().
     """
     try:
-        return mt5.copy_rates_from(symbol, timeframe, datetime_from, count)
+        return _mt5.copy_rates_from(symbol, timeframe, datetime_from, count)
     except SystemError:
         return None
 
@@ -654,7 +671,7 @@ def copy_rates_from_pos(symbol: str,
     :return: Returns bars as the numpy array with the named time, open, high, low, close, tick_volume, spread and real_volume columns. Return None in case of an error. The info on the error can be obtained using last_error().
     """
     try:
-        return mt5.copy_rates_from_pos(symbol, timeframe, start_pos, count)
+        return _mt5.copy_rates_from_pos(symbol, timeframe, start_pos, count)
     except SystemError:
         return None
 
@@ -674,7 +691,7 @@ def copy_rates_range(symbol: str,
         :return: Returns bars as the numpy array with the named time, open, high, low, close, tick_volume, spread and real_volume columns. Return None in case of an error. The info on the error can be obtained using last_error().
         """
     try:
-        return mt5.copy_rates_range(symbol, timeframe, datetime_from, datetime_to)
+        return _mt5.copy_rates_range(symbol, timeframe, datetime_from, datetime_to)
     except SystemError:
         return None
 
@@ -701,12 +718,12 @@ def copy_rates(symbol: str,
     try:
         if datetime_from is not None:
             if count is not None:
-                return mt5.copy_rates_from(symbol, timeframe, datetime_from, count)
+                return _mt5.copy_rates_from(symbol, timeframe, datetime_from, count)
             if datetime_to is not None:
-                return mt5.copy_rates_range(symbol, timeframe, datetime_from, datetime_to)
+                return _mt5.copy_rates_range(symbol, timeframe, datetime_from, datetime_to)
         if all(x is None for x in [datetime_from, datetime_to, start_pos, count]):
-            return mt5.copy_rates_from_pos(symbol, timeframe, _DEFAULT_MAX_BARS, 0)
-        return mt5.copy_rates_from_pos(symbol, timeframe, start_pos, count)
+            return _mt5.copy_rates_from_pos(symbol, timeframe, _DEFAULT_MAX_BARS, 0)
+        return _mt5.copy_rates_from_pos(symbol, timeframe, start_pos, count)
     except SystemError:
         return None
 
@@ -731,7 +748,7 @@ def copy_ticks_from(symbol: str,
         When creating the 'datetime' object, Python uses the local time zone, while MetaTrader 5 stores tick and bar open time in UTC time zone (without the shift). Therefore, 'datetime' should be created in UTC time for executing functions that use time. Data received from the MetaTrader 5 terminal has UTC time.
     """
     try:
-        return mt5.copy_ticks_from(symbol, datetime_from, count, flags)
+        return _mt5.copy_ticks_from(symbol, datetime_from, count, flags)
     except SystemError:
         return None
 
@@ -756,7 +773,7 @@ def copy_ticks_range(symbol: str,
             When creating the 'datetime' object, Python uses the local time zone, while MetaTrader 5 stores tick and bar open time in UTC time zone (without the shift). Therefore, 'datetime' should be created in UTC time for executing functions that use time. Data received from the MetaTrader 5 terminal has UTC time.
         """
     try:
-        return mt5.copy_ticks_range(symbol, datetime_from, datetime_to, flags)
+        return _mt5.copy_ticks_range(symbol, datetime_from, datetime_to, flags)
     except SystemError:
         return None
 
@@ -767,7 +784,7 @@ def orders_total() -> int:
 
     :return: Integer value.
     """
-    return mt5.orders_total()
+    return _mt5.orders_total()
 
 
 @_context_manager_modified
@@ -790,28 +807,28 @@ def orders_get(symbol: str = None,
         The group parameter allows sorting out orders by symbols. '*' can be used at the beginning and the end of a string.
         The group parameter may contain several comma separated conditions. A condition can be set as a mask using '*'. The logical negation symbol '!' can be used for an exclusion. All conditions are applied sequentially, which means conditions of including to a group should be specified first followed by an exclusion condition. For example, group="*, !EUR" means that orders for all symbols should be selected first and the ones containing "EUR" in symbol names should be excluded afterwards.
     """
-    return _get_ticket_type_stuff(mt5.orders_get, symbol, group=group, ticket=ticket, function=function)
+    return _get_ticket_type_stuff(_mt5.orders_get, symbol=symbol, group=group, ticket=ticket, function=function)
 
 
 @_context_manager_modified
-def order_calc_margin(action: int,
+def order_calc_margin(order_type: int,
                       symbol: str,
                       volume: float,
                       price: float,
                       ) -> float:
     """Return margin in the account currency to perform a specified trading operation.
 
-    :param action: Order type taking values from the ORDER_TYPE enumeration
+    :param order_type: Order type taking values from the ORDER_TYPE enumeration
     :param symbol: Financial instrument name.
     :param volume: Trading operation volume.
     :param price: Open price.
     :return: Real value if successful, otherwise None. The error info can be obtained using last_error().
     """
-    return mt5.order_calc_margin(action, symbol, volume, price)
+    return _mt5.order_calc_margin(order_type, symbol, volume, price)
 
 
 @_context_manager_modified
-def order_calc_profit(action: int,
+def order_calc_profit(order_type: int,
                       symbol: str,
                       volume: float,
                       price_open: float,
@@ -819,13 +836,13 @@ def order_calc_profit(action: int,
                       ) -> float:
     """Return margin in the account currency to perform a specified trading operation.
 
-    :param action: Order type taking values from the ORDER_TYPE enumeration
+    :param order_type: Order type taking values from the ORDER_TYPE enumeration
     :param symbol: Financial instrument name.
     :param volume: Trading operation volume.
     :param price: Open price.
     :return: Real value if successful, otherwise None. The error info can be obtained using last_error().
     """
-    return mt5.order_calc_profit(action, symbol, volume, price_open, price_close)
+    return _mt5.order_calc_profit(order_type, symbol, volume, price_open, price_close)
 
 
 @_context_manager_modified
@@ -861,7 +878,7 @@ def order_check(request: dict = None,
     :param kwargs:
     :return: OrderSendResult namedtuple
     """
-    return _do_trade_action(mt5.order_check, locals().copy())
+    return _do_trade_action(_mt5.order_check, locals().copy())
 
 
 @_context_manager_modified
@@ -900,7 +917,7 @@ def order_send(request: dict = None,
     :param kwargs:
     :return: OrderSendResult namedtuple
     """
-    return _do_trade_action(mt5.order_send, locals().copy())
+    return _do_trade_action(_mt5.order_send, locals().copy())
 
 
 @_context_manager_modified
@@ -909,7 +926,7 @@ def positions_total() -> int:
 
     :return: Integer value.
     """
-    return mt5.positions_total()
+    return _mt5.positions_total()
 
 
 @_context_manager_modified
@@ -927,7 +944,7 @@ def positions_get(symbol: str = None,
     :param ticket:
     :return:
     """
-    return _get_ticket_type_stuff(symbol, group=group, ticket=ticket, function=function)
+    return _get_ticket_type_stuff(_mt5.positions_get, symbol=symbol, group=group, ticket=ticket, function=function)
 
 
 @_context_manager_modified
@@ -951,7 +968,8 @@ def history_deals_get(datetime_from: datetime = None,
     :param kwargs:
     :return: a tuple of TradeDeal objects
     """
-    return _get_history_type_stuff(mt5.history_deals_get, locals().copy())
+    d = locals().copy()
+    return _get_history_type_stuff(_mt5.history_deals_get, d)
 
 
 @_context_manager_modified
@@ -963,7 +981,7 @@ def history_orders_total(datetime_from: datetime, datetime_to: datetime, **kwarg
     :param kwargs:
     :return:
     """
-    return mt5.history_orders_total(datetime_from, datetime_to)
+    return _mt5.history_orders_total(datetime_from, datetime_to)
 
 
 @_context_manager_modified
@@ -975,7 +993,7 @@ def history_deals_total(datetime_from: datetime, datetime_to: datetime, **kwargs
     :param kwargs:
     :return:
     """
-    return mt5.history_deals_total(datetime_from, datetime_to)
+    return _mt5.history_deals_total(datetime_from, datetime_to)
 
 
 @_context_manager_modified
@@ -999,7 +1017,8 @@ def history_orders_get(datetime_from: datetime = None,
     :param kwargs:
     :return: a tuple of TradeOrder objects
     """
-    return _get_history_type_stuff(mt5.history_orders_get, locals().copy())
+    d = locals().copy()
+    return _get_history_type_stuff(_mt5.history_orders_get, d)
 
 
 @_context_manager_modified
@@ -1046,52 +1065,52 @@ if __name__ == "__main__":
     import logging
     from datetime import datetime, timedelta
 
-    time_to = datetime.utcnow()
-    time_from = time_to - timedelta(hours=2)
-
     logging.basicConfig(level=logging.DEBUG, format='%(relativeCreated)6d %(threadName)s %(message)s')
     mt5_connected = connected(
-        timeout=3500,
+        timeout=1500,
         ensure_trade_enabled=True,
-        raise_on_error=False,
+        raise_on_error=True,
         debug_logging=True,
         logger=logging.debug,
+        enable_real_trading=False,
     )
-
+    time_to = datetime.utcnow()
+    time_from = time_to - timedelta(minutes=1)
+    symbol = "EURUSD"
     with mt5_connected:
-        x = copy_rates("@EP", TIMEFRAME_H1, start_pos=0, count=10)
-        # for i in x:
-        #     print(datetime.utcfromtimestamp(i[0]), datetime.utcnow())
-        # print(_DEFAULT_FROM_DATETIME.timestamp())
-        # print(x)
-        # print(len(x))
-        # print(type(x))
-        _ = login(1132419)
+        _ = login(26630503)
         _ = version()
         _ = last_error()
         _ = account_info()
         _ = terminal_info()
         _ = symbols_total()
         _ = symbols_get()
-        _ = symbol_info("@EP")
-        _ = symbol_info_tick("@EP")
-        _ = symbol_select("@EP", True)
-        _ = copy_rates_from()
-        _ = copy_rates_from_pos()
-        _ = copy_rates_range(datetime_from=time_from, datetime_to=time_to)
-        _ = copy_ticks_from()
-        _ = copy_ticks_range()
+        _ = symbol_info(symbol)
+        _ = symbol_info_tick(symbol)
+        _ = symbol_select(symbol, True)
+        _ = copy_rates_from(symbol, timeframe=TIMEFRAME_H1, datetime_from=time_from, count=10)
+        _ = copy_rates_from_pos(symbol, TIMEFRAME_H1, 100, 100)
+        _ = copy_rates_range(symbol, TIMEFRAME_H1, datetime_from=time_from, datetime_to=time_to)
+        _ = copy_rates(symbol, TIMEFRAME_H1, start_pos=0, count=10)
+        _ = copy_ticks_from(symbol, time_from, 100, COPY_TICKS_ALL)
+        _ = copy_ticks_range(symbol, time_from, time_to, COPY_TICKS_ALL)
+        _ = copy_ticks_range(symbol, time_to, time_from, COPY_TICKS_ALL)
         _ = orders_total()
         _ = orders_get()
-        _ = order_calc_margin()
-        _ = order_calc_profit()
-        _ = order_check()
+        _ = order_calc_margin(order_type=ORDER_TYPE_BUY, symbol=symbol, volume=1.0, price=symbol_info_tick(symbol).ask)
+        _ = order_calc_profit(order_type=ORDER_TYPE_BUY, symbol=symbol, volume=1.0,
+                              price_open=(ask := symbol_info_tick(symbol).ask), price_close=ask + 100)
+
+        request = dict(
+            action=TRADE_ACTION_DEAL, type=ORDER_TYPE_BUY, symbol=symbol,
+        )
+        _ = order_check(request=request, volume=1.0)
         _ = order_send({})
         _ = positions_total()
         _ = positions_get()
-        _ = history_orders_total()
-        _ = history_orders_get()
-        _ = history_deals_total()
-        _ = history_deals_get()
+        _ = history_orders_total(datetime_from=time_from, datetime_to=time_to)
+        _ = history_orders_get(datetime_from=time_from, datetime_to=time_to)
+        _ = history_deals_total(datetime_from=time_from, datetime_to=time_to)
+        _ = history_deals_get(datetime_from=time_from, datetime_to=time_to)
 
     # print(s[0])
