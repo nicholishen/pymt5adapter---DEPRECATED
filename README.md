@@ -19,7 +19,7 @@
 # Installation
 
 ```
-pip install pymt5adapter
+pip install -U pymt5adapter
 ```
  
 The `MetaTrader5` dependency sometimes has issues installing with the `pip` version that automatically gets packaged inside of the `virualenv` environment. If cannot install `MetaTrader5` then you need to update `pip` inside of the virtualenv. From the command line within the virual environment use:
