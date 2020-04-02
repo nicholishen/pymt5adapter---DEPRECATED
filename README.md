@@ -47,14 +47,21 @@ import pymt5adapter as mt5
 The `connected` function returns a context manager which performs all API setup and tear-down and ensures that `mt5.shutdown()` is always called. 
 
 ### Hello world
+
 Using the context manager can be easy as...
+
 ```python
 import pymt5adapter as mt5
 
 with mt5.connected():
     print(mt5.version())
+
 ```
+
+
+
 and can be customized to modify the entire API
+
 ```python
 import pymt5adapter as mt5
 
@@ -77,8 +84,11 @@ with mt5_connected:
     except mt5.MT5Error as e:
         print("We modified the API to throw exceptions for all functions.")
         print(f"Error = {e}")
+
 ```
+
 Output:
+
 ```
 MT5 connection has been initialized.
 [account_info()][(1, 'Success')][AccountInfo(login=1234567, trade_mode=0, leverage=100, limit_orders=0, margin_so]
@@ -88,6 +98,7 @@ We modified the API to throw exceptions for all functions.
 Error = (-2, 'Invalid arguments')
 [shutdown()][(1, 'Success')][True]
 MT5 connection has been shutdown.
+
 ```
 
 # New Features
@@ -102,6 +113,7 @@ The following API functions can now except an optional callback for filtering us
 * `history_orders_get`
 
 Example:
+
 ```python
 visible_symbols = mt5.symbols_get(function=lambda s: s.visible)
 
