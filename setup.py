@@ -1,11 +1,7 @@
-# -*- coding: utf-8 -*-
-
-# Learn more: https://github.com/kennethreitz/setup.py
-
 from setuptools import find_packages
 from setuptools import setup
 
-with open('README.rst') as f:
+with open('README.md') as f:
     readme = f.read()
 
 with open('LICENSE') as f:
@@ -14,11 +10,11 @@ with open('LICENSE') as f:
 setup(
     name='pymt5adapter',
     version='0.1.0',
-    description='A drop in replacmenet for MetaTrader5 with type hinting and pythonic interfaces',
+    description='A drop in replacement/wrapper for the MetaTrader5 package with type hinting and pythonic interfaces',
     long_description=readme,
     author='nicholishen',
     author_email='nicholishen@tutanota.com',
-    url='https://github.com/kennethreitz/samplemod',
+    url='https://github.com/nicholishen/pymt5adapter',
     license=license,
     packages=find_packages(exclude=('tests', 'docs'))
 )

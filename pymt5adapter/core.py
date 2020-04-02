@@ -6,8 +6,6 @@ import numpy
 
 from . import const
 from . import helpers
-from .helpers import _args_to_str
-from .helpers import _is_rates_array
 from .state import global_state as _state
 from .types import *
 
@@ -21,10 +19,10 @@ def _context_manager_modified(f):
     def wrapper(*args, **kwargs):
         result = f(*args, **kwargs)
         if _state.force_namedtuple:
-            if _is_rates_array(result):
+            if helpers._is_rates_array(result):
                 result = [Rate(*r) for r in result]
         if _state.global_debugging:  # and not result:
-            call_sig = f"{f.__name__}({_args_to_str(args, kwargs)})"
+            call_sig = f"{f.__name__}({helpers._args_to_str(args, kwargs)})"
             _state.log(f"[{call_sig}][{last_error()}][{str(result)[:80]}]")
         if _state.raise_on_errors:
             error_code, description = last_error()
@@ -55,7 +53,8 @@ def initialize(path: str = None,
     :timeout: Number of milliseconds for timeout
     :return: Returns True in case of successful connection to the MetaTrader 5 terminal, otherwise - False.
     """
-    cleaned = helpers._clean_args(locals().copy())
+    d = locals().copy()
+    cleaned = helpers._clean_args(d)
     result = _mt5.initialize(**cleaned)
     return result
 
@@ -76,7 +75,8 @@ def login(login: int, *,
     :param kwargs:
     :return: True if success.
     """
-    args = helpers._clean_args(locals().copy())
+    d = locals().copy()
+    args = helpers._clean_args(d)
     login = args.pop('login')
     return _mt5.login(login, **args)
 
@@ -137,7 +137,8 @@ def symbols_total() -> int:
 
 
 @_context_manager_modified
-def symbols_get(group=None,
+def symbols_get(*,
+                group=None,
                 function: Callable[[SymbolInfo], bool] = None,
                 **kwargs
                 ) -> Tuple[SymbolInfo]:
@@ -469,7 +470,8 @@ def order_send(request: dict = None,
     :param kwargs:
     :return: OrderSendResult namedtuple
     """
-    return helpers._do_trade_action(_mt5.order_send, locals().copy())
+    d = locals().copy()
+    return helpers._do_trade_action(_mt5.order_send, d)
 
 
 @_context_manager_modified
@@ -496,7 +498,10 @@ def positions_get(symbol: str = None,
     :param ticket:
     :return:
     """
-    return helpers._get_ticket_type_stuff(_mt5.positions_get, symbol=symbol, group=group, ticket=ticket,
+    return helpers._get_ticket_type_stuff(_mt5.positions_get,
+                                          symbol=symbol,
+                                          group=group,
+                                          ticket=ticket,
                                           function=function)
 
 

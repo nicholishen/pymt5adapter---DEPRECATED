@@ -42,7 +42,7 @@ def _get_history_type_stuff(func, args):
     datetime_to = args.get('datetime_to', None)
     if not args:
         datetime_from = datetime(2000, 1, 1)
-        datetime_to = datetime.utcnow()
+        datetime_to = datetime.now()
     if datetime_from is not None and datetime_to is not None:
         deals = func(datetime_from, datetime_to, **args)
     else:

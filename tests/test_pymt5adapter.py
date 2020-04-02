@@ -6,8 +6,6 @@ from .context import pymt5adapter as mt5
 from pymt5adapter.state import global_state as state
 
 
-
-
 # @pytest.fixture(autouse=True)
 # def mt5_init_shutdown():
 #     try:
@@ -25,21 +23,24 @@ from pymt5adapter.state import global_state as state
 
 @pytest.fixture
 def connected():
-    context = mt5.connected(#debug_logging=True,
-                            ensure_trade_enabled=True,
-                            enable_real_trading=False
-                            )
+    context = mt5.connected(  # debug_logging=True,
+        ensure_trade_enabled=True,
+        enable_real_trading=False
+    )
     return context
 
 
 def make_kwargs_func(func):
     return lambda **kwargs: func(**kwargs)
 
+
 def test_trade_class(connected):
     from pymt5adapter.advanced import Trade
     with connected:
-        orig_req = Trade().setup('EPM20', 12345).market_buy(1).request
+        symbol = mt5.symbols_get(function=lambda s: s.visible)[0].name
+        orig_req = Trade(symbol, 12345).market_buy(1).request
         print(orig_req)
+
 
 def test_borg_state_class():
     from pymt5adapter.state import _GlobalState
@@ -49,10 +50,13 @@ def test_borg_state_class():
     s2.raise_on_errors = False
     assert not s1.raise_on_errors
 
+
 def test_mt5_connection_context():
+    from pymt5adapter.state import _GlobalState
+    state.set_defaults()
     assert not state.global_debugging
     assert not state.raise_on_errors
-    connection = mt5.connected(raise_on_error=True)
+    connection = mt5.connected(raise_on_error=True, debug_logging=True)
     with connection:
         assert state.global_debugging
         assert state.raise_on_errors
@@ -79,7 +83,6 @@ def test_package_version():
     pattern = re.compile(r'^\d+\.\d+\.\d+$')
     assert isinstance(version := mt5.__version__, str)
     assert pattern.match(version)
-
 
 
 def test_terminal_version(connected):
@@ -229,8 +232,6 @@ def test_copy_ticks_range(connected):
             time.sleep(1)
         assert mt5.last_error()[0] == mt5.RES_S_OK
         assert len(ticks) > 0
-
-
 
 
 if __name__ == "__main__":

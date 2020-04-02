@@ -161,24 +161,24 @@ def test_copy_ticks_range():
     assert len(ticks) > 0
 
 
-
-def test_copy_ticks_range():
-    from datetime import datetime, timedelta
-    import time
-    time_to = datetime.now()
-    time_from = time_to - timedelta(minutes=5)
-    print(mt5.initialize())
-    for i in range(20):
-        ticks = mt5.copy_ticks_range("USDJPY", time_from, time_to, mt5.COPY_TICKS_ALL)
-        print(mt5.last_error())
-        print(ticks)
-        if len(ticks) > 0:
-            break
-        time.sleep(1)
-        print(mt5.last_error()[0])
-    assert mt5.last_error()[0] == mt5.RES_S_OK
-    assert len(ticks) > 0
-    mt5.shutdown()
+#
+# def test_copy_ticks_range():
+#     from datetime import datetime, timedelta
+#     import time
+#     time_to = datetime.now()
+#     time_from = time_to - timedelta(minutes=5)
+#     print(mt5.initialize())
+#     for i in range(20):
+#         ticks = mt5.copy_ticks_range("USDJPY", time_from, time_to, mt5.COPY_TICKS_ALL)
+#         print(mt5.last_error())
+#         print(ticks)
+#         if len(ticks) > 0:
+#             break
+#         time.sleep(1)
+#         print(mt5.last_error()[0])
+#     assert mt5.last_error()[0] == mt5.RES_S_OK
+#     assert len(ticks) > 0
+#     mt5.shutdown()
 
 
 
