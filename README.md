@@ -18,24 +18,30 @@
 
 # Installation
 
-    pip install pymt5adapter
+```
+pip install pymt5adapter
+```
  
 The `MetaTrader5` dependency sometimes has issues installing with the `pip` version that automatically gets packaged inside of the `virualenv` environment. If cannot install `MetaTrader5` then you need to update `pip` inside of the virtualenv. From the command line within the virual environment use:
 
-    (inside virtualenv):easy_install -U pip
+```
+(inside virtualenv):easy_install -U pip
+```
+    
    
 
 
 
 # Import  
 This should work with any existing `MetaTrader5` script by simply changing the `import` statement from:  
-  
-    import MetaTrader5 as mt5  
-    
+```python
+import MetaTrader5 as mt5 
+```
 to:  
-      
-    import pymt5adapter as mt5  
-
+```python
+import pymt5adapter as mt5 
+``` 
+     
 # Context Manager
 
 The `connected` function returns a context manager which performs all API setup and tear-down and ensures that `mt5.shutdown()` is always called. 
@@ -105,5 +111,5 @@ def out_deal(deal: mt5.TradeDeal):
 out_deals = mt5.history_deals_get(function=out_deal)
 ```
 
-[intellisence_screen]: ./images/intellisense_screen.jpg "intellisence example"
-[docs_screen]: ./images/docs_screen.jpg "quick docs example"
+[intellisence_screen]: https://github.com/nicholishen/pymt5adapter/raw/master/images/intellisense_screen.jpg "intellisence example"
+[docs_screen]: https://github.com/nicholishen/pymt5adapter/raw/master/images/docs_screen.jpg "quick docs example"
