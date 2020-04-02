@@ -5,6 +5,7 @@ import pytest
 from .context import pymt5adapter as mt5
 
 
+
 # @pytest.fixture(autouse=True)
 # def mt5_init_shutdown():
 #     try:
@@ -22,11 +23,22 @@ from .context import pymt5adapter as mt5
 
 @pytest.fixture
 def connected():
-    context = mt5.connected()
+    context = mt5.connected(#debug_logging=True,
+                            ensure_trade_enabled=True,
+                            enable_real_trading=False
+                            )
     return context
+
 
 def make_kwargs_func(func):
     return lambda **kwargs: func(**kwargs)
+
+def test_trade_class(connected):
+    from pymt5adapter.advanced import Trade
+    with connected:
+        orig_req = Trade().setup('EPM20', 12345).market_buy(1).request
+        print(orig_req)
+
 
 def test_mt5_connection_context():
     assert not mt5.globals.is_global_debugging()
@@ -40,7 +52,6 @@ def test_mt5_connection_context():
         except mt5.MT5Error as e:
             print(e)
         # pass
-
 
 
 def test_initialize(connected):
@@ -193,6 +204,17 @@ def test_consistency_for_empty_data_returns(connected):
     with connected:
         results = [f(ticket=0) for f in funcs]
         assert all_same_return_types(results)
+
+
+def test_copy_ticks_range(connected):
+    from datetime import datetime, timedelta
+    time_to = datetime.utcnow()
+    time_from = time_to - timedelta(minutes=3)
+    with connected:
+        ticks = mt5.copy_ticks_range("EPM20", time_from, time_to, mt5.COPY_TICKS_ALL)
+        assert mt5.last_error()[0] == mt5.RES_S_OK
+        assert len(ticks) > 0
+
 
 
 if __name__ == "__main__":

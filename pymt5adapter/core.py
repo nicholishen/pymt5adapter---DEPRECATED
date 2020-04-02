@@ -562,7 +562,8 @@ def positions_get(symbol: str = None,
     :param ticket:
     :return:
     """
-    return helpers._get_ticket_type_stuff(_mt5.positions_get, symbol=symbol, group=group, ticket=ticket, function=function)
+    return helpers._get_ticket_type_stuff(_mt5.positions_get, symbol=symbol, group=group, ticket=ticket,
+                                          function=function)
 
 
 @_context_manager_modified

@@ -5,6 +5,7 @@ GLOBAL_RAISE_FLAG = False
 GLOBAL_DEBUG_LOGGING_FLAG = False
 GLOBAL_LOG = print
 
+
 def is_global_force_namedtuple():
     return GLOBAL_FORCE_NAMEDTUPLE
 

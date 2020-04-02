@@ -52,8 +52,14 @@ def _get_history_type_stuff(func, args):
 
 
 def _do_trade_action(func, args):
-    request = args.pop('request', {})
     cleaned = _clean_args(args)
+    request = cleaned.pop('request', {})
+    symbol = cleaned.pop('symbol')
+    try:
+        symbol = symbol.name
+    except:
+        pass
+    cleaned['symbol'] = symbol
     order_request = {**request, **cleaned}
     return func(order_request)
 
