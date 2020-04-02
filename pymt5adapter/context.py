@@ -54,7 +54,8 @@ def connected(*,
     _state.log = logger
     log = _state.log
     try:
-        args = helpers._clean_args(locals().copy())
+        d = locals().copy()
+        args = helpers._clean_args(d)
         mt5_keys = "path portable server login password timeout".split()
         mt5_kwargs = {k: v for k, v in args.items() if k in mt5_keys}
         if not initialize(**mt5_kwargs):
