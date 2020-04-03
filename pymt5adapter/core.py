@@ -139,7 +139,7 @@ def symbols_total() -> int:
 @_context_manager_modified
 def symbols_get(*,
                 group: str = None,
-                function: Callable[[SymbolInfo], bool] = None,
+                function: Callable = None,
                 **kwargs
                 ) -> Tuple[SymbolInfo]:
     """Get all financial instruments from the MetaTrader 5 terminal.
@@ -276,7 +276,7 @@ def copy_rates(symbol: str,
             if datetime_to is not None:
                 return _mt5.copy_rates_range(symbol, timeframe, datetime_from, datetime_to)
         if all(x is None for x in [datetime_from, datetime_to, start_pos, count]):
-            return _mt5.copy_rates_from_pos(symbol, timeframe, 3000, 0)
+            return _mt5.copy_rates_from_pos(symbol, timeframe, 0, 3000)
         return _mt5.copy_rates_from_pos(symbol, timeframe, start_pos, count)
     except SystemError:
         return None
@@ -346,7 +346,7 @@ def orders_get(symbol: str = None,
                *,
                group: str = None,
                ticket: int = None,
-               function: Callable[[TradeOrder], bool] = None,
+               function: Callable = None,
                **kwargs
                ) -> Tuple[TradeOrder]:
     """Get active orders with the ability to filter by symbol or ticket.
@@ -432,7 +432,8 @@ def order_check(request: dict = None,
     :param kwargs:
     :return: OrderSendResult namedtuple
     """
-    return helpers._do_trade_action(_mt5.order_check, locals().copy())
+    d = locals().copy()
+    return helpers._do_trade_action(_mt5.order_check, d)
 
 
 @_context_manager_modified
@@ -489,7 +490,7 @@ def positions_get(symbol: str = None,
                   *,
                   group: str = None,
                   ticket: int = None,
-                  function: Callable[[TradePosition], bool] = None,
+                  function: Callable = None,
                   **kwargs
                   ) -> Tuple[TradePosition]:
     """Get open positions with the ability to filter by symbol or ticket. There are three call options.
@@ -499,11 +500,12 @@ def positions_get(symbol: str = None,
     :param ticket:
     :return:
     """
-    return helpers._get_ticket_type_stuff(_mt5.positions_get,
-                                          symbol=symbol,
-                                          group=group,
-                                          ticket=ticket,
-                                          function=function)
+    return helpers._get_ticket_type_stuff(
+        _mt5.positions_get,
+        symbol=symbol,
+        group=group,
+        ticket=ticket,
+        function=function)
 
 
 @_context_manager_modified
@@ -513,7 +515,7 @@ def history_deals_get(datetime_from: datetime = None,
                       group: str = None,
                       ticket: int = None,
                       position: int = None,
-                      function: Callable[[TradeDeal], bool] = None,
+                      function: Callable = None,
                       **kwargs
                       ) -> Tuple[TradeDeal]:
     """Get deals from trading history within the specified interval with the ability to filter by ticket or position.
@@ -562,7 +564,7 @@ def history_orders_get(datetime_from: datetime = None,
                        group: str = None,
                        ticket: int = None,
                        position: int = None,
-                       function: Callable[[TradeOrder], bool] = None,
+                       function: Callable = None,
                        **kwargs
                        ) -> Tuple[TradeOrder]:
     """Get deals from trading history within the specified interval with the ability to filter by ticket or position.

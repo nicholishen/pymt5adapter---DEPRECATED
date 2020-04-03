@@ -48,13 +48,13 @@ def connected(*,
     Note:
         The param ``enable_real_trading`` must be set to True to work on live accounts.
     """
+    d = locals().copy()
     _state.global_debugging = debug_logging
     _state.raise_on_errors = raise_on_errors
     _state.force_namedtuple = force_namedtuple
     _state.log = logger
     log = _state.log
     try:
-        d = locals().copy()
         args = helpers._clean_args(d)
         mt5_keys = "path portable server login password timeout".split()
         mt5_kwargs = {k: v for k, v in args.items() if k in mt5_keys}

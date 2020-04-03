@@ -2,8 +2,8 @@ import itertools
 
 import pytest
 
-from .context import pymt5adapter as mt5
 from pymt5adapter.state import global_state as state
+from .context import pymt5adapter as mt5
 
 
 # @pytest.fixture(autouse=True)
@@ -21,6 +21,10 @@ from pymt5adapter.state import global_state as state
 #         mt5.shutdown()
 #         print(c, "testing shutdown")
 
+def first_symbol():
+    return mt5.symbols_get(function=lambda s: s.visible)[0]
+
+
 @pytest.fixture
 def connected():
     context = mt5.connected(  # debug_logging=True,
@@ -34,32 +38,24 @@ def make_kwargs_func(func):
     return lambda **kwargs: func(**kwargs)
 
 
+def test_copy_rates(connected):
+    with connected:
+        s = first_symbol().name
+        rates = mt5.copy_rates(s, mt5.TIMEFRAME_M1)
+        print(len(rates))
 
-def test_easy_example():
-    mt5_connected = mt5.connected(
-        # path=r'C:\Users\user\Desktop\MT5\terminal64.exe',
-        # portable=True,
-        # server='MetaQuotes-Demo',
-        # login=1234567,
-        # password='password1',
-        # timeout=5000,
-        ensure_trade_enabled=True,
-        enable_real_trading=False,
-        raise_on_errors=True,
-        debug_logging=True,
-        logger=print,
-    )
-    with mt5_connected:
+
+def test_raise_on_errors():
+    with mt5.connected(raise_on_errors=True):
+        with pytest.raises(mt5.MT5Error):
+            _ = mt5.history_orders_total(',', ',')
+    # does not raise
+    with mt5.connected(raise_on_errors=False):
         try:
-            num_orders = mt5.history_orders_total("invalid", "arguments")
-        except mt5.MT5Error as e:
-            print("We modified the API to throw exceptions for all functions.")
-            print(f"Error = {e}")
+            _ = mt5.history_orders_total(',', ',')
+        except mt5.MT5Error:
+            pytest.fail()
 
-        visible_symbols = mt5.symbols_get(function=lambda s: s.visible)
-        def out_deal(deal: mt5.TradeDeal):
-            return deal.entry == mt5.DEAL_ENTRY_OUT
-        out_deals = mt5.history_deals_get(function=out_deal)
 
 def test_trade_class(connected):
     from pymt5adapter.advanced import Trade
@@ -79,7 +75,6 @@ def test_borg_state_class():
 
 
 def test_mt5_connection_context():
-    from pymt5adapter.state import _GlobalState
     state.set_defaults()
     assert not state.global_debugging
     assert not state.raise_on_errors
