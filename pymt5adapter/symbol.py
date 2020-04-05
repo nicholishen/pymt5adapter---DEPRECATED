@@ -9,7 +9,6 @@ from .types import Union
 
 class Symbol:
     def __init__(self, symbol: Union[str, SymbolInfo]):
-        self._info = None
         self.name = symbol
 
     @property
@@ -20,8 +19,10 @@ class Symbol:
     def name(self, symbol):
         try:
             self._name = symbol.name
+            self._info = symbol
         except AttributeError:
             self._name = symbol
+            self._info = None
         self._refresh()
 
     @property

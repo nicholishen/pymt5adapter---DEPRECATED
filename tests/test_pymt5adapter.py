@@ -44,7 +44,7 @@ def test_order_class(connected):
     with connected:
         symbol = first_symbol()
         tick = mt5.symbol_info_tick(symbol.name)
-        result = buy_order(symbol=symbol, price=tick.ask, volume=1.0).send()
+        result = buy_order(symbol=symbol, volume=1.0).send()
         assert isinstance(result, mt5.OrderSendResult)
 
 def test_copy_rates(connected):

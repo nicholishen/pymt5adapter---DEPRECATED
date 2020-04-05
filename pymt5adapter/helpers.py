@@ -72,7 +72,7 @@ def do_trade_action(func, args):
     cleaned = clean_args(args)
     request = cleaned.pop('request', {})
     symbol = cleaned.pop('symbol', None) or request.pop('symbol', None)
-    cleaned['symbol'] = symbol
+    cleaned['symbol'] = any_symbol(symbol)
     order_request = reduce_combine(request, cleaned)
     return func(order_request)
 

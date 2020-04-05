@@ -5,9 +5,7 @@ from .const import MQL_TRADE_REQUEST_PROPS
 from .core import order_check
 from .core import order_send
 from .helpers import reduce_combine
-from .types import OrderCheckResult
-from .types import OrderSendResult
-from .types import TradePosition
+from .types import *
 
 
 def create_order_request(request: dict = None, *, action: int = None, magic: int = None,
