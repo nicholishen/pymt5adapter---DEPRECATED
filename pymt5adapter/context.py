@@ -48,9 +48,8 @@ def connected(*,
     Note:
         The param ``enable_real_trading`` must be set to True to work on live accounts.
     """
-    # TODO removed the force_namedtuple feature
     args = locals().copy()
-    args = helpers._clean_args(args)
+    args = helpers.clean_args(args)
     mt5_keys = ('path', 'portable', 'server', 'login', 'password', 'timeout')
     mt5_kwargs = {k: v for k, v in args.items() if k in mt5_keys}
     _state.global_debugging = bool(debug_logging)

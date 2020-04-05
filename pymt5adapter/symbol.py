@@ -83,7 +83,7 @@ class Symbol:
 
     def _refresh(self):
         info = self._info or symbol_info(self._name)
-        self._tick = symbol_info_tick(self._name)
+        self.refresh_rates()
         self._select = info.select
         # self.spread = info.spread
         # self.volume_real = info.volume_real

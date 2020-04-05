@@ -2,22 +2,7 @@ from .const import *
 from .core import order_send
 from .core import symbol_info
 from .core import symbol_info_tick
-from .helpers import _clean_args
 from .types import *
-
-
-
-
-class Order:
-    def __init__(self,
-                 request: dict = None, *, action: int = None, magic: int = None,
-                 order: int = None, symbol: str = None, volume: float = None,
-                 price: float = None, stoplimit: float = None, sl: float = None, tp: float = None,
-                 deviation: int = None, type: int = None, type_filling: int = None, type_time: int = None,
-                 expiration: int = None, comment: str = None, position: int = None, position_by: int = None,
-                 ):
-        pass
-
 
 
 class Trade:

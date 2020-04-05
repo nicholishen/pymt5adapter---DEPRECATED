@@ -4,10 +4,10 @@ from . import const
 from .const import MQL_TRADE_REQUEST_PROPS
 from .core import order_check
 from .core import order_send
+from .helpers import reduce_combine
 from .types import OrderCheckResult
 from .types import OrderSendResult
 from .types import TradePosition
-from .helpers import _reduce_combine
 
 
 def create_order_request(request: dict = None, *, action: int = None, magic: int = None,
@@ -22,11 +22,6 @@ def create_order_request(request: dict = None, *, action: int = None, magic: int
     :return:
     """
     return Order(**locals().copy()).request()
-    # kw = locals().copy()
-    # request = kw.pop('request', None) or {}
-    # kw = {k: v for k, v in kw.items() if v is not None and k in MQL_TRADE_REQUEST_KEYS.keys()}
-    # kw = {**request, **kw}
-    # return kw
 
 
 class Order:
@@ -94,7 +89,7 @@ class Order:
 
         args = locals().copy()
         request = args.pop('request', None) or {}
-        self._set_self_kw(_reduce_combine(request, args))
+        self._set_self_kw(reduce_combine(request, args))
         return self
 
     def __repr__(self):

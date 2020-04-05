@@ -23,4 +23,4 @@ class _GlobalState:
         self._log = logger or self._log
 
 
-global_state = _GlobalState()
+global_state: _GlobalState = _GlobalState()
