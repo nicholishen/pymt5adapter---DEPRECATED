@@ -25,46 +25,45 @@ def connected(*,
               logger: Callable = None,
               raise_on_errors: bool = False,
               debug_logging: bool = False,
-              force_namedtuple: bool = False,
+              # force_namedtuple: bool = False,
               **kwargs
               ) -> None:
     """Context manager for managing the connection with a MT5 terminal using the python ``with`` statement.
 
-    :param path:  Path to terminal
-    :param portable: Load terminal in portable mode
-    :param server:  Server name
-    :param login:  Account login number
-    :param password:  Account password
-    :param timeout: Connection init timeout
-    :param ensure_trade_enabled: Ensure that auto-trading is enabled
-    :param enable_real_trading:  Must be explicitly set to True to run on a live account
-    :param logger: Logging function. Will pass connection status messages to this function
-    :param raise_on_errors: bool - Raise Mt5Error Exception when the last_error() result of a function is not RES_S_OK
-    :param debug_logging: Logs each function call that results in an error or empty data return
-    :param force_namedtuple:
+    :param path:  Path to terminal.
+    :param portable: Load terminal in portable mode.
+    :param server:  Server name.
+    :param login:  Account login number.
+    :param password:  Account password.
+    :param timeout: Connection init timeout.
+    :param ensure_trade_enabled: Ensure that auto-trading is enabled. Will raise MT5Error when set to True and the terminal auto-trading is disabled.
+    :param enable_real_trading:  Must be explicitly set to True to run on a live account.
+    :param logger: Logging function. Will pass connection status messages to this function.
+    :param raise_on_errors: Automatically checks last_error() after each function call and will raise a Mt5Error when the error-code is not RES_S_OK
+    :param debug_logging: Logs each function call.
+
     :param kwargs:
     :return: None
 
     Note:
         The param ``enable_real_trading`` must be set to True to work on live accounts.
     """
-    d = locals().copy()
-    _state.global_debugging = debug_logging
-    _state.raise_on_errors = raise_on_errors
-    _state.force_namedtuple = force_namedtuple
-    _state.log = logger
+    # TODO removed the force_namedtuple feature
+    args = locals().copy()
+    args = helpers._clean_args(args)
+    mt5_keys = ('path', 'portable', 'server', 'login', 'password', 'timeout')
+    mt5_kwargs = {k: v for k, v in args.items() if k in mt5_keys}
+    _state.global_debugging = bool(debug_logging)
+    _state.raise_on_errors = bool(raise_on_errors)
+    # _state.force_namedtuple = bool(force_namedtuple)
+    _state.log = logger or print
     log = _state.log
     try:
-        args = helpers._clean_args(d)
-        mt5_keys = "path portable server login password timeout".split()
-        mt5_kwargs = {k: v for k, v in args.items() if k in mt5_keys}
         if not initialize(**mt5_kwargs):
             raise MT5Error(*last_error())
         elif debug_logging:
             log("MT5 connection has been initialized.")
-
-        is_real = account_info().trade_mode == const.ACCOUNT_TRADE_MODE_REAL
-        if is_real and not enable_real_trading:
+        if not enable_real_trading and account_info().trade_mode == const.ACCOUNT_TRADE_MODE_REAL:
             raise MT5Error(
                 const.RES_X_REAL_ACCOUNT_DISABLED,
                 "REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER")
@@ -75,6 +74,6 @@ def connected(*,
         yield
     finally:
         shutdown()
-        _state.set_defaults()
         if debug_logging:
             log("MT5 connection has been shutdown.")
+        _state.set_defaults()

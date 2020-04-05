@@ -3,9 +3,23 @@ from datetime import datetime
 from .types import *
 
 
+def _any_symbol(symbol):
+    try:
+        return symbol.name
+    except AttributeError:
+        return symbol
+
+
+def _reduce_combine(d1: dict, d2: dict):
+    d1 = {k: v for k, v in d1.items() if v is not None}
+    for k, v in d2.items():
+        if v is not None:
+            d1[k] = v
+    return d1
+
+
 def _clean_args(kwargs: dict) -> dict:
-    kwargs.pop('kwargs', None)
-    return {k: v for k, v in kwargs.items() if v is not None}
+    return {k: v for k, v in kwargs.items() if v is not None and k != 'kwargs'}
 
 
 def _reduce_dict(d: dict, keys: Iterable) -> dict:
@@ -55,19 +69,15 @@ def _get_history_type_stuff(func, args):
 def _do_trade_action(func, args):
     cleaned = _clean_args(args)
     request = cleaned.pop('request', {})
-    symbol = cleaned.pop('symbol')
-    try:
-        symbol = symbol.name
-    except:
-        pass
+    symbol = cleaned.pop('symbol', None) or request.pop('symbol', None)
     cleaned['symbol'] = symbol
-    order_request = {**request, **cleaned}
+    order_request = _reduce_combine(request, cleaned)
     return func(order_request)
 
 
-def remap(item):
+def namedtuples_to_dicts(item):
     if hasattr(item, '_asdict'):
         return item._asdict()
     if type(item) is tuple:
-        return tuple(remap(x) for x in item)
+        return tuple(map(namedtuples_to_dicts, item))
     return item

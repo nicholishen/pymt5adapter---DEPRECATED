@@ -1,4 +1,5 @@
 import functools
+import re
 from datetime import datetime
 
 import MetaTrader5 as _mt5
@@ -6,6 +7,7 @@ import numpy
 
 from . import const
 from . import helpers
+from .helpers import _any_symbol
 from .state import global_state as _state
 from .types import *
 
@@ -18,16 +20,17 @@ def _context_manager_modified(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         result = f(*args, **kwargs)
-        if _state.force_namedtuple:
-            if helpers._is_rates_array(result):
-                result = [Rate(*r) for r in result]
-        if _state.global_debugging:  # and not result:
+        if _state.global_debugging:  # and not result: (on second thought let's log all function calls)
             call_sig = f"{f.__name__}({helpers._args_to_str(args, kwargs)})"
             _state.log(f"[{call_sig}][{last_error()}][{str(result)[:80]}]")
+        # make sure we log before we raise
         if _state.raise_on_errors:
             error_code, description = last_error()
             if error_code != const.RES_S_OK:
                 raise MT5Error(error_code, description)
+        # if _state.force_namedtuple:
+        #     if helpers._is_rates_array(result):
+        #         result = [Rate(*r) for r in result]
         return result
 
     return wrapper
@@ -53,9 +56,9 @@ def initialize(path: str = None,
     :timeout: Number of milliseconds for timeout
     :return: Returns True in case of successful connection to the MetaTrader 5 terminal, otherwise - False.
     """
-    d = locals().copy()
-    cleaned = helpers._clean_args(d)
-    result = _mt5.initialize(**cleaned)
+    args = locals().copy()
+    args = helpers._clean_args(args)
+    result = _mt5.initialize(**args)
     return result
 
 
@@ -75,8 +78,8 @@ def login(login: int, *,
     :param kwargs:
     :return: True if success.
     """
-    d = locals().copy()
-    args = helpers._clean_args(d)
+    args = locals().copy()
+    args = helpers._clean_args(args)
     login = args.pop('login')
     return _mt5.login(login, **args)
 
@@ -128,17 +131,9 @@ def terminal_info() -> TerminalInfo:
 
 
 @_context_manager_modified
-def symbols_total() -> int:
-    """Get the number of all financial instruments in the MetaTrader 5 terminal. The function is similar to SymbolsTotal(). However, it returns the number of all symbols including custom ones and the ones disabled in MarketWatch.
-
-    :return: <int>
-    """
-    return _mt5.symbols_total()
-
-
-@_context_manager_modified
 def symbols_get(*,
                 group: str = None,
+                regex: str = None,
                 function: Callable = None,
                 **kwargs
                 ) -> Tuple[SymbolInfo]:
@@ -149,49 +144,66 @@ def symbols_get(*,
         Unlike symbol_info(), the symbols_get() function returns data on all requested symbols within a single call.
 
     :param group: The filter for arranging a group of necessary symbols. Optional parameter. If the group is specified, the function returns only symbols meeting a specified criteria.
+    :param regex: Regex pattern for symbol filtering.
     :param function: A function that takes a SymbolInfo object as its only arg and returns <bool> for filtering the collection of SymbolInfo results.
     :param kwargs:
     :return: A tuple of SymbolInfo objects
     """
     symbols = _mt5.symbols_get(group=group) if group else _mt5.symbols_get()
+    if regex:
+        if isinstance(regex, str):
+            regex = re.compile(regex)
+        symbols = filter(lambda s: regex.match(s.name), symbols)
     if function:
-        symbols = tuple(filter(function, symbols))
-    return symbols
+        symbols = filter(function, symbols)
+    return tuple(symbols)
 
 
 @_context_manager_modified
-def symbol_info(symbol: str) -> SymbolInfo:
+def symbols_total() -> int:
+    """Get the number of all financial instruments in the MetaTrader 5 terminal. The function is similar to SymbolsTotal(). However, it returns the number of all symbols including custom ones and the ones disabled in MarketWatch.
+
+    :return: <int>
+    """
+    return _mt5.symbols_total()
+
+
+@_context_manager_modified
+def symbol_info(symbol) -> SymbolInfo:
     """Get data on the specified financial instrument.
 
     :param symbol:
     :return: Return info in the form of a named tuple structure (namedtuple). Return None in case of an error. The info on the error can be obtained using last_error().
     """
+    symbol = _any_symbol(symbol)
     return _mt5.symbol_info(symbol)
 
 
 @_context_manager_modified
-def symbol_info_tick(symbol: str) -> Tick:
+def symbol_info_tick(symbol) -> Tick:
     """Get the last tick for the specified financial instrument.
 
     :param symbol:
     :return:
     """
+    symbol = _any_symbol(symbol)
     return _mt5.symbol_info_tick(symbol)
 
 
 @_context_manager_modified
-def symbol_select(symbol: str, enable: bool = True) -> bool:
+def symbol_select(symbol, enable: bool = True) -> bool:
     """Select a symbol in the MarketWatch window or remove a symbol from the window.
 
     :param symbol:
     :param enable:
     :return: True if successful, otherwise – False.
     """
+    symbol = _any_symbol(symbol)
     return _mt5.symbol_select(symbol, enable)
 
 
 @_context_manager_modified
-def copy_rates_from(symbol: str,
+def copy_rates_from(symbol,
                     timeframe: int,
                     datetime_from: Union[datetime, int],
                     count: int
@@ -204,6 +216,7 @@ def copy_rates_from(symbol: str,
     :param count: Number of bars to receive.
     :return: Returns bars as the numpy array with the named time, open, high, low, close, tick_volume, spread and real_volume columns. Return None in case of an error. The info on the error can be obtained using last_error().
     """
+    symbol = _any_symbol(symbol)
     try:
         return _mt5.copy_rates_from(symbol, timeframe, datetime_from, count)
     except SystemError:
@@ -211,7 +224,7 @@ def copy_rates_from(symbol: str,
 
 
 @_context_manager_modified
-def copy_rates_from_pos(symbol: str,
+def copy_rates_from_pos(symbol,
                         timeframe: int,
                         start_pos: int,
                         count: int
@@ -224,6 +237,7 @@ def copy_rates_from_pos(symbol: str,
     :param count: Number of bars to receive.
     :return: Returns bars as the numpy array with the named time, open, high, low, close, tick_volume, spread and real_volume columns. Return None in case of an error. The info on the error can be obtained using last_error().
     """
+    symbol = _any_symbol(symbol)
     try:
         return _mt5.copy_rates_from_pos(symbol, timeframe, start_pos, count)
     except SystemError:
@@ -231,7 +245,7 @@ def copy_rates_from_pos(symbol: str,
 
 
 @_context_manager_modified
-def copy_rates_range(symbol: str,
+def copy_rates_range(symbol,
                      timeframe: int,
                      datetime_from: Union[datetime, int],
                      datetime_to: Union[datetime, int]
@@ -244,6 +258,7 @@ def copy_rates_range(symbol: str,
         :param datetime_to: Date, up to which the bars are requested. Set by the 'datetime' object or as a number of seconds elapsed since 1970.01.01. Bars with the open time <= date_to are returned.
         :return: Returns bars as the numpy array with the named time, open, high, low, close, tick_volume, spread and real_volume columns. Return None in case of an error. The info on the error can be obtained using last_error().
         """
+    symbol = _any_symbol(symbol)
     try:
         return _mt5.copy_rates_range(symbol, timeframe, datetime_from, datetime_to)
     except SystemError:
@@ -251,7 +266,7 @@ def copy_rates_range(symbol: str,
 
 
 @_context_manager_modified
-def copy_rates(symbol: str,
+def copy_rates(symbol,
                timeframe: int,
                *,
                datetime_from: Union[datetime, int] = None,
@@ -269,21 +284,24 @@ def copy_rates(symbol: str,
     :param count: Number of bars to receive.
     :return: Returns bars as the numpy array with the named time, open, high, low, close, tick_volume, spread and real_volume columns. Return None in case of an error. The info on the error can be obtained using last_error().
     """
+    # TODO: test this without args and with count only
+    symbol = _any_symbol(symbol)
     try:
         if datetime_from is not None:
             if count is not None:
                 return _mt5.copy_rates_from(symbol, timeframe, datetime_from, count)
             if datetime_to is not None:
                 return _mt5.copy_rates_range(symbol, timeframe, datetime_from, datetime_to)
-        if all(x is None for x in [datetime_from, datetime_to, start_pos, count]):
-            return _mt5.copy_rates_from_pos(symbol, timeframe, 0, 3000)
+        if all(x is None for x in [datetime_from, datetime_to, start_pos]):
+            start_pos = 0
+        count = count or const.MAX_BARS
         return _mt5.copy_rates_from_pos(symbol, timeframe, start_pos, count)
     except SystemError:
         return None
 
 
 @_context_manager_modified
-def copy_ticks_from(symbol: str,
+def copy_ticks_from(symbol,
                     datetime_from: Union[datetime, int],
                     count: int,
                     flags: int,
@@ -301,6 +319,7 @@ def copy_ticks_from(symbol: str,
 
         When creating the 'datetime' object, Python uses the local time zone, while MetaTrader 5 stores tick and bar open time in UTC time zone (without the shift). Therefore, 'datetime' should be created in UTC time for executing functions that use time. Data received from the MetaTrader 5 terminal has UTC time.
     """
+    symbol = _any_symbol(symbol)
     try:
         return _mt5.copy_ticks_from(symbol, datetime_from, count, flags)
     except SystemError:
@@ -308,7 +327,7 @@ def copy_ticks_from(symbol: str,
 
 
 @_context_manager_modified
-def copy_ticks_range(symbol: str,
+def copy_ticks_range(symbol,
                      datetime_from: Union[datetime, int],
                      datetime_to: Union[datetime, int],
                      flags: int,
@@ -326,6 +345,7 @@ def copy_ticks_range(symbol: str,
 
             When creating the 'datetime' object, Python uses the local time zone, while MetaTrader 5 stores tick and bar open time in UTC time zone (without the shift). Therefore, 'datetime' should be created in UTC time for executing functions that use time. Data received from the MetaTrader 5 terminal has UTC time.
         """
+    symbol = _any_symbol(symbol)
     try:
         return _mt5.copy_ticks_range(symbol, datetime_from, datetime_to, flags)
     except SystemError:
@@ -342,7 +362,7 @@ def orders_total() -> int:
 
 
 @_context_manager_modified
-def orders_get(symbol: str = None,
+def orders_get(symbol=None,
                *,
                group: str = None,
                ticket: int = None,
@@ -361,12 +381,13 @@ def orders_get(symbol: str = None,
         The group parameter allows sorting out orders by symbols. '*' can be used at the beginning and the end of a string.
         The group parameter may contain several comma separated conditions. A condition can be set as a mask using '*'. The logical negation symbol '!' can be used for an exclusion. All conditions are applied sequentially, which means conditions of including to a group should be specified first followed by an exclusion condition. For example, group="*, !EUR" means that orders for all symbols should be selected first and the ones containing "EUR" in symbol names should be excluded afterwards.
     """
+    symbol = _any_symbol(symbol)
     return helpers._get_ticket_type_stuff(_mt5.orders_get, symbol=symbol, group=group, ticket=ticket, function=function)
 
 
 @_context_manager_modified
 def order_calc_margin(order_type: int,
-                      symbol: str,
+                      symbol,
                       volume: float,
                       price: float,
                       ) -> float:
@@ -378,12 +399,13 @@ def order_calc_margin(order_type: int,
     :param price: Open price.
     :return: Real value if successful, otherwise None. The error info can be obtained using last_error().
     """
+    symbol = _any_symbol(symbol)
     return _mt5.order_calc_margin(order_type, symbol, volume, price)
 
 
 @_context_manager_modified
 def order_calc_profit(order_type: int,
-                      symbol: str,
+                      symbol,
                       volume: float,
                       price_open: float,
                       price_close: float,
@@ -396,6 +418,7 @@ def order_calc_profit(order_type: int,
     :param price: Open price.
     :return: Real value if successful, otherwise None. The error info can be obtained using last_error().
     """
+    symbol = _any_symbol(symbol)
     return _mt5.order_calc_profit(order_type, symbol, volume, price_open, price_close)
 
 
@@ -403,7 +426,7 @@ def order_calc_profit(order_type: int,
 def order_check(request: dict = None,
                 *,
                 action: int = None, magic: int = None, order: int = None,
-                symbol: str = None, volume: float = None, price: float = None,
+                symbol=None, volume: float = None, price: float = None,
                 stoplimit: float = None, sl: float = None, tp: float = None,
                 deviation: int = None, type: int = None, type_filling: int = None,
                 type_time: int = None, expiration: datetime = None,
@@ -432,15 +455,16 @@ def order_check(request: dict = None,
     :param kwargs:
     :return: OrderSendResult namedtuple
     """
-    d = locals().copy()
-    return helpers._do_trade_action(_mt5.order_check, d)
+    symbol = _any_symbol(symbol)
+    args = locals().copy()
+    return helpers._do_trade_action(_mt5.order_check, args)
 
 
 @_context_manager_modified
 def order_send(request: dict = None,
                *,
                action: int = None, magic: int = None, order: int = None,
-               symbol: str = None, volume: float = None, price: float = None,
+               symbol=None, volume: float = None, price: float = None,
                stoplimit: float = None, sl: float = None, tp: float = None,
                deviation: int = None, type: int = None, type_filling: int = None,
                type_time: int = None, expiration: datetime = None,
@@ -472,8 +496,9 @@ def order_send(request: dict = None,
     :param kwargs:
     :return: OrderSendResult namedtuple
     """
-    d = locals().copy()
-    return helpers._do_trade_action(_mt5.order_send, d)
+    symbol = _any_symbol(symbol)
+    args = locals().copy()
+    return helpers._do_trade_action(_mt5.order_send, args)
 
 
 @_context_manager_modified
@@ -486,7 +511,7 @@ def positions_total() -> int:
 
 
 @_context_manager_modified
-def positions_get(symbol: str = None,
+def positions_get(symbol=None,
                   *,
                   group: str = None,
                   ticket: int = None,
@@ -500,6 +525,7 @@ def positions_get(symbol: str = None,
     :param ticket:
     :return:
     """
+    symbol = _any_symbol(symbol)
     return helpers._get_ticket_type_stuff(
         _mt5.positions_get,
         symbol=symbol,
@@ -529,8 +555,8 @@ def history_deals_get(datetime_from: datetime = None,
     :param kwargs:
     :return: a tuple of TradeDeal objects
     """
-    d = locals().copy()
-    return helpers._get_history_type_stuff(_mt5.history_deals_get, d)
+    args = locals().copy()
+    return helpers._get_history_type_stuff(_mt5.history_deals_get, args)
 
 
 @_context_manager_modified
@@ -578,5 +604,5 @@ def history_orders_get(datetime_from: datetime = None,
     :param kwargs:
     :return: a tuple of TradeOrder objects
     """
-    d = locals().copy()
-    return helpers._get_history_type_stuff(_mt5.history_orders_get, d)
+    args = locals().copy()
+    return helpers._get_history_type_stuff(_mt5.history_orders_get, args)

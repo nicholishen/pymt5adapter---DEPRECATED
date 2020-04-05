@@ -248,3 +248,25 @@ RES_E_INTERNAL_FAIL_TIMEOUT = -10005  # internal timeout
 # CUSTOM ERROR CODES ----------------------------------------------------------------------
 RES_X_AUTO_TRADE_DISABLED = -20000  # terminal auto-trading is disabled
 RES_X_REAL_ACCOUNT_DISABLED = -20001  # REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER
+
+
+MAX_BARS= 3000
+MQL_TRADE_REQUEST_PROPS = dict(
+    action=int,
+    magic=int,
+    order=int,
+    symbol=str,
+    volume=float,
+    price=float,
+    stoplimit=float,
+    sl=float,
+    tp=float,
+    deviation=int,
+    type=int,
+    type_filling=int,
+    type_time=int,
+    expiration=int,
+    comment=str,
+    position=int,
+    position_by=int,
+)

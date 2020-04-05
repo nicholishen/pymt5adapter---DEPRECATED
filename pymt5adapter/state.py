@@ -10,10 +10,9 @@ class _GlobalState:
             self.set_defaults()
 
     def set_defaults(self):
-        self.force_namedtuple = False
         self.raise_on_errors = False
         self.global_debugging = False
-        self._log = print
+        self.log = print
 
     @property
     def log(self):

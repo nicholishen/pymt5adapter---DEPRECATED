@@ -1,24 +1,37 @@
 from .const import *
-from .core import *
+from .core import order_send
+from .core import symbol_info
+from .core import symbol_info_tick
+from .helpers import _clean_args
+from .types import *
 
 
-# class CSymbolInfo:
-#     def __init__(self, symbol_name:str):
-#         s = self._symbol_info = symbol_info(symbol_name)
-#         d = s.__dict__.copy()
-#         self.__dict__ = {k:v for k, v in d.items() if not k.startswith('_') and not k.startswith('n_')}
-#
-#     @property
-#     def tick(self):
-#         return symbol_info_tick(self.name)
+
+
+class Order:
+    def __init__(self,
+                 request: dict = None, *, action: int = None, magic: int = None,
+                 order: int = None, symbol: str = None, volume: float = None,
+                 price: float = None, stoplimit: float = None, sl: float = None, tp: float = None,
+                 deviation: int = None, type: int = None, type_filling: int = None, type_time: int = None,
+                 expiration: int = None, comment: str = None, position: int = None, position_by: int = None,
+                 ):
+        pass
+
 
 
 class Trade:
+    _request_keys = MQL_TRADE_REQUEST_PROPS.keys()
+
+    @classmethod
+    def from_request(cls, request: dict):
+        return cls(symbol=request.get('symbol', None), magic=request.get('magic', None))
 
     def __init__(self, symbol: Union[str, SymbolInfo] = None, magic=0):
         self._symbol = None
         self._magic = magic
-        if symbol:
+        self._request = {}
+        if symbol is not None:
             self.symbol = symbol
 
     @property
@@ -26,31 +39,29 @@ class Trade:
         return self._magic
 
     @magic.setter
-    def magic(self, magic: int):
-        self._magic = int(magic)
+    def magic(self, new_magic: int):
+        self._request['magic'] = self._magic = new_magic
 
     @property
-    def symbol(self) -> SymbolInfo:
+    def symbol(self) -> Union[SymbolInfo, None]:
         return self._symbol
 
     @symbol.setter
     def symbol(self, new_symbol):
         if isinstance(new_symbol, str):
-            self._symbol = symbol_info(new_symbol)
+            s = symbol_info(new_symbol)
         elif isinstance(new_symbol, SymbolInfo):
-            self._symbol = new_symbol
+            s = new_symbol
         else:
             raise TypeError('Wrong assignment type. Must be str or SymbolInfo')
+        self._request['symbol'] = s.name
+        self._symbol = s
 
-    def setup(self, symbol=None, magic=None) -> 'Trade':
-        if symbol:
-            self.symbol = symbol
-        if magic:
-            self.magic = magic
-        return self
+    def tick(self):
+        return symbol_info_tick(self._symbol.name)
 
     def _market_order(self, type, volume, comment=None):
-        tick = symbol_info_tick(self.symbol.name)
+        tick = self.tick()
         price = tick.ask if type == ORDER_TYPE_BUY else tick.bid
         result = order_send(
             symbol=self.symbol.name,

@@ -5,9 +5,12 @@ from typing import Callable
 from typing import Iterable
 from typing import Tuple
 from typing import Union
+from typing import Any
 
+# custom namedtuples
+CopyRate = namedtuple("CopyRate", "time, open, high, low, close, tick_volume, spread, real_volume")
+CopyTick = namedtuple("CopyTick", "time, bid, ask, last, volume, time_msc, flags, volume_real")
 # MT5 namedtuple objects for typing
-Rate = namedtuple("Rate", "time open high low close tick_volume spread real_volume")
 Tick = _mt5.Tick
 AccountInfo = _mt5.AccountInfo
 SymbolInfo = _mt5.SymbolInfo

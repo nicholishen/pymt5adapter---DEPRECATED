@@ -6,42 +6,51 @@ from pymt5adapter.state import global_state as state
 from .context import pymt5adapter as mt5
 
 
-# @pytest.fixture(autouse=True)
-# def mt5_init_shutdown():
-#     try:
-#         mt5_init_shutdown.count += 1
-#     except AttributeError:
-#         mt5_init_shutdown.count = 1
-#     c = mt5_init_shutdown.count
-#     try:
-#         mt5.initialize()
-#         print(c, "testing init")
-#         yield
-#     finally:
-#         mt5.shutdown()
-#         print(c, "testing shutdown")
-
-def first_symbol():
-    return mt5.symbols_get(function=lambda s: s.visible)[0]
-
-
 @pytest.fixture
 def connected():
     context = mt5.connected(  # debug_logging=True,
         ensure_trade_enabled=True,
-        enable_real_trading=False
+        enable_real_trading=False,
+        timeout=3000
     )
     return context
+
+
+def first_symbol():
+    return mt5.symbols_get(function=lambda s: s.visible and s.trade_mode == mt5.SYMBOL_TRADE_MODE_FULL)[0]
 
 
 def make_kwargs_func(func):
     return lambda **kwargs: func(**kwargs)
 
 
+def test_order_class(connected):
+    from pymt5adapter.order import Order, create_order_request
+    control = dict(symbol="EURUSD", action=mt5.TRADE_ACTION_DEAL, type=mt5.ORDER_TYPE_BUY, price=1.2345, comment="control")
+    order = Order(control)
+    assert order.request() == control
+    order.comment="control"
+    assert order.request() == control
+    order(control, type=mt5.ORDER_TYPE_BUY)
+    assert order.request() == control
+
+    buy_order = Order.as_buy()
+    assert buy_order.type == mt5.ORDER_TYPE_BUY
+    assert buy_order.action == mt5.TRADE_ACTION_DEAL
+    sell_order = Order.as_sell()
+    assert sell_order.type == mt5.ORDER_TYPE_SELL
+    assert sell_order.action == mt5.TRADE_ACTION_DEAL
+
+    with connected:
+        symbol = first_symbol()
+        tick = mt5.symbol_info_tick(symbol.name)
+        result = buy_order(symbol=symbol, price=tick.ask, volume=1.0).send()
+        assert isinstance(result, mt5.OrderSendResult)
+
 def test_copy_rates(connected):
     with connected:
         s = first_symbol().name
-        rates = mt5.copy_rates(s, mt5.TIMEFRAME_M1)
+        rates = mt5.copy_rates(s, mt5.TIMEFRAME_M1, count=10000)
         print(len(rates))
 
 
@@ -58,7 +67,7 @@ def test_raise_on_errors():
 
 
 def test_trade_class(connected):
-    from pymt5adapter.advanced import Trade
+    from pymt5adapter.trade import Trade
     with connected:
         symbol = mt5.symbols_get(function=lambda s: s.visible)[0].name
         orig_req = Trade(symbol, 12345).market_buy(1).request
@@ -242,13 +251,18 @@ def test_consistency_for_empty_data_returns(connected):
 
 
 def test_copy_ticks_range(connected):
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     import time
-    time_to = datetime.now()
-    time_from = time_to - timedelta(minutes=3)
+
     with connected:
+        symbol = first_symbol()
+        last_bar_time = mt5.copy_rates_from_pos(symbol.name, mt5.TIMEFRAME_M1, 0, 1)[0]['time']
+        time_to = datetime.fromtimestamp(last_bar_time, tz=timezone.utc)
+        time_from = time_to - timedelta(minutes=3)
+
+
         for i in range(20):
-            ticks = mt5.copy_ticks_range("USDJPY", time_from, time_to, mt5.COPY_TICKS_ALL)
+            ticks = mt5.copy_ticks_range(symbol.name, time_from, time_to, mt5.COPY_TICKS_ALL)
             if len(ticks) > 0:
                 break
             time.sleep(1)
