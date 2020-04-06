@@ -76,10 +76,20 @@ def do_trade_action(func, args):
     order_request = reduce_combine(request, cleaned)
     return func(order_request)
 
+def as_dict(data: Any):
+    try:
+        return as_dict(data._asdict())
+    except AttributeError:
+        T = type(data)
+        if T is list or T is tuple:
+            return T(as_dict(i) for i in data)
+        if T is dict:
+            return {k: as_dict(v) for k, v in data.items()}
+        return data
 
-def namedtuples_to_dicts(item):
-    if hasattr(item, '_asdict'):
-        return item._asdict()
-    if type(item) is tuple:
-        return tuple(map(namedtuples_to_dicts, item))
-    return item
+# def namedtuples_to_dicts(item):
+#     if hasattr(item, '_asdict'):
+#         return item._asdict()
+#     if type(item) is tuple:
+#         return tuple(map(namedtuples_to_dicts, item))
+#     return item
