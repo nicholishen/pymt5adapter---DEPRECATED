@@ -3,66 +3,51 @@ from .core import order_send
 from .core import symbol_info
 from .core import symbol_info_tick
 from .types import *
+from .order import Order
+from .symbol import Symbol
 
 
 class Trade:
-    _request_keys = MQL_TRADE_REQUEST_PROPS.keys()
 
-    @classmethod
-    def from_request(cls, request: dict):
-        return cls(symbol=request.get('symbol', None), magic=request.get('magic', None))
-
-    def __init__(self, symbol: Union[str, SymbolInfo] = None, magic=0):
+    def __init__(self, symbol: Union[str, SymbolInfo], magic=0):
         self._symbol = None
-        self._magic = magic
-        self._request = {}
-        if symbol is not None:
-            self.symbol = symbol
+        self.symbol = symbol
+        self.magic = magic
+        self._order = Order(symbol=self.symbol, magic=self.magic)
 
     @property
-    def magic(self) -> int:
-        return self._magic
-
-    @magic.setter
-    def magic(self, new_magic: int):
-        self._request['magic'] = self._magic = new_magic
-
-    @property
-    def symbol(self) -> Union[SymbolInfo, None]:
+    def symbol(self) -> Union[Symbol, None]:
         return self._symbol
 
     @symbol.setter
     def symbol(self, new_symbol):
-        if isinstance(new_symbol, str):
-            s = symbol_info(new_symbol)
-        elif isinstance(new_symbol, SymbolInfo):
-            s = new_symbol
+        if isinstance(new_symbol, (str, Symbol, SymbolInfo)):
+            s = Symbol(new_symbol)
         else:
-            raise TypeError('Wrong assignment type. Must be str or SymbolInfo')
-        self._request['symbol'] = s.name
+            raise TypeError('Wrong assignment type. Must be str, Symbol, or SymbolInfo')
         self._symbol = s
 
-    def tick(self):
-        return symbol_info_tick(self._symbol.name)
+    def _get_order(self, obj: Order) -> Order:
+        return obj(symbol=self.symbol, magic=self.magic)
 
-    def _market_order(self, type, volume, comment=None):
-        tick = self.tick()
-        price = tick.ask if type == ORDER_TYPE_BUY else tick.bid
-        result = order_send(
-            symbol=self.symbol.name,
-            magic=self.magic,
-            action=TRADE_ACTION_DEAL,
-            type=type,
-            volume=float(volume),
-            price=price,
-            comment=comment,
-        )
+    # def _market_order(self, order, volume, comment=None):
+    #     self._order = self._get_order(order)
+    #     tick = self.symbol.refresh_rates().tick
+    #     price = tick.ask if type == ORDER_TYPE_BUY else tick.bid
+    #     self._order(volume=volume, price=price, comment=comment)
+    #     result = self._order.send()
+    #     return result
+
+    def buy(self, volume: float, comment: str = None) -> OrderSendResult:
+        price = self.symbol.refresh_rates().tick.ask
+        self._order = self._get_order(Order.as_buy)(
+            price=price, volume=volume, comment=comment)
+        result = self._order.send()
         return result
 
-    def market_buy(self, volume: float, comment: str = None) -> OrderSendResult:
-        result = self._market_order(type=ORDER_TYPE_BUY, volume=volume, comment=comment)
-        return result
-
-    def market_sell(self, volume: float, comment: str = None) -> OrderSendResult:
-        result = self._market_order(type=ORDER_TYPE_SELL, volume=volume, comment=comment)
+    def sell(self, volume: float, comment: str = None) -> OrderSendResult:
+        price = self.symbol.refresh_rates().tick.bid
+        self._order = self._get_order(Order.as_sell)(
+            price=price, volume=volume, comment=comment)
+        result = self._order.send()
         return result

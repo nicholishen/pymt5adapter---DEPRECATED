@@ -328,7 +328,7 @@ def copy_rates(symbol,
                 return _mt5.copy_rates_range(symbol, timeframe, datetime_from, datetime_to)
         if all(x is None for x in [datetime_from, datetime_to, start_pos]):
             start_pos = 0
-        count = count or _const.MAX_BARS
+        count = count or _state.max_bars
         return _mt5.copy_rates_from_pos(symbol, timeframe, start_pos, count)
     except SystemError:
         return None
@@ -562,7 +562,6 @@ def order_send(request: dict = None,
     :param kwargs:
     :return: OrderSendResult namedtuple
     """
-    symbol = _h.any_symbol(symbol)
     args = locals().copy()
     return _h.do_trade_action(_mt5.order_send, args)
 

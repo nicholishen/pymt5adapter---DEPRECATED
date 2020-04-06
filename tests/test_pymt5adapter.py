@@ -24,6 +24,13 @@ def make_kwargs_func(func):
     return lambda **kwargs: func(**kwargs)
 
 
+def test_trade_class(connected):
+    from pymt5adapter.trade import Trade
+    with connected:
+        trade = Trade(symbol=first_symbol(), magic=1234)
+        res = trade.buy(1.0)
+        assert isinstance(res, mt5.OrderSendResult)
+
 def test_order_class(connected):
     from pymt5adapter.order import Order, create_order_request
     control = dict(symbol="EURUSD", action=mt5.TRADE_ACTION_DEAL, type=mt5.ORDER_TYPE_BUY, price=1.2345, comment="control")
@@ -66,12 +73,12 @@ def test_raise_on_errors():
             pytest.fail()
 
 
-def test_trade_class(connected):
-    from pymt5adapter.trade import Trade
-    with connected:
-        symbol = mt5.symbols_get(function=lambda s: s.visible)[0].name
-        orig_req = Trade(symbol, 12345).market_buy(1).request
-        print(orig_req)
+# def test_trade_class(connected):
+#     from pymt5adapter.trade import Trade
+#     with connected:
+#         symbol = mt5.symbols_get(function=lambda s: s.visible)[0].name
+#         orig_req = Trade(symbol, 12345).market_buy(1).request
+#         print(orig_req)
 
 
 def test_borg_state_class():

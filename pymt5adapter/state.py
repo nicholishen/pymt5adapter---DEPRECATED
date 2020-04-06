@@ -12,6 +12,7 @@ class _GlobalState:
     def set_defaults(self):
         self.raise_on_errors = False
         self.global_debugging = False
+        self.max_bars = 100_000
         self.log = print
 
     @property

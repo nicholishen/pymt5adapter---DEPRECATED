@@ -4,7 +4,7 @@ from . import const
 from .const import MQL_TRADE_REQUEST_PROPS
 from .core import order_check
 from .core import order_send
-from .helpers import reduce_combine
+from .helpers import reduce_combine, any_symbol
 from .types import *
 
 
@@ -61,9 +61,21 @@ class Order:
         res.volume *= 2
         return res
 
+    @classmethod
+    def as_adjusted_net_position(cls, position:TradePosition, new_net_position:float, **kwargs):
+        volume = position.volume
+        volume = -volume if position.type else volume
+        new_volume = new_net_position - volume
+        order = cls.as_sell(**kwargs) if new_volume < 0.0 else cls.as_buy(**kwargs)
+        order.volume = abs(new_volume)
+        order.symbol = position.symbol
+
+
+
+
     def __init__(self,
                  request: dict = None, *, action: int = None, magic: int = None,
-                 order: int = None, symbol: str = None, volume: float = None,
+                 order: int = None, symbol=None, volume: float = None,
                  price: float = None, stoplimit: float = None, sl: float = None, tp: float = None,
                  deviation: int = None, type: int = None, type_filling: int = None, type_time: int = None,
                  expiration: int = None, comment: str = None, position: int = None, position_by: int = None,
@@ -78,7 +90,7 @@ class Order:
 
     def __call__(self,
                  request: dict = None, *, action: int = None, magic: int = None,
-                 order: int = None, symbol: str = None, volume: float = None,
+                 order: int = None, symbol=None, volume: float = None,
                  price: float = None, stoplimit: float = None, sl: float = None, tp: float = None,
                  deviation: int = None, type: int = None, type_filling: int = None, type_time: int = None,
                  expiration: int = None, comment: str = None, position: int = None, position_by: int = None,
@@ -87,6 +99,8 @@ class Order:
 
         args = locals().copy()
         request = args.pop('request', None) or {}
+        symbol = args.get('symbol') or request.get('symbol')
+        args['symbol'] = any_symbol(symbol)
         self._set_self_kw(reduce_combine(request, args))
         return self
 
@@ -112,7 +126,8 @@ class Order:
 
     def send(self) -> OrderSendResult:
         # TODO test
-        return order_send(self.request())
+        res = order_send(self.request())
+        return res
 
     def copy(self) -> 'Order':
         return copy.deepcopy(self)
