@@ -49,7 +49,7 @@ def connected(*,
         The param ``enable_real_trading`` must be set to True to work on live accounts.
     """
     args = locals().copy()
-    args = helpers.clean_args(args)
+    args = helpers.reduce_args(args)
     mt5_keys = ('path', 'portable', 'server', 'login', 'password', 'timeout')
     mt5_kwargs = {k: v for k, v in args.items() if k in mt5_keys}
     _state.global_debugging = bool(debug_logging)

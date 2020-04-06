@@ -1,10 +1,11 @@
 # Introduction
 
-`pymt5adapter` is a wrapper and drop-in replacement for the `MetaTrader5` python package by MetaQuotes. 
-The API functions return the same values from the `MetaTrader5` functions, but adds the following functionality:
+`pymt5adapter` is a wrapper and drop-in replacement (wrapper) for the `MetaTrader5` python package by MetaQuotes. 
+The API functions simply pass through values from the `MetaTrader5` functions, but adds the following functionality
+in addition to a more pythonic interface:
 
  - Typing hinting has been added to all functions and return objects for linting and IDE integration. 
- Intellisense will now work no matter how nested objects are. ![alt text][intellisence_screen]
+ Now intellisense will work no matter how nested objects are. ![alt text][intellisence_screen]
  - Docstrings have been added to each function 
  (see MQL [documentation](https://www.mql5.com/en/docs/integration/python_metatrader5)). 
  Docs can now be accessed on the fly in the IDE. For example: `Ctrl+Q` in pycharm. ![alt text][docs_screen]
@@ -103,9 +104,9 @@ MT5 connection has been shutdown.
 
 ```
 
-# New Features
+# Additional features not included in the `MetaTrader5` package
 
-### filter callbacks
+### Filter function callbacks
 
 The following API functions can now except an optional callback for filtering using the named parameter, `function`:
 * `symbols_get`

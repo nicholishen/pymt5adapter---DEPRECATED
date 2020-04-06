@@ -24,6 +24,15 @@ def make_kwargs_func(func):
     return lambda **kwargs: func(**kwargs)
 
 
+def test_as_dict_all(connected):
+    from pymt5adapter import as_dict_all
+    with connected:
+        deals = mt5.history_deals_get()[:3]
+        mutated_deals = as_dict_all(deals)
+        assert len(deals) == len(mutated_deals)
+        assert all(isinstance(d, dict) for d in mutated_deals)
+
+
 def test_trade_class(connected):
     from pymt5adapter.trade import Trade
     with connected:
@@ -31,12 +40,14 @@ def test_trade_class(connected):
         res = trade.buy(1.0)
         assert isinstance(res, mt5.OrderSendResult)
 
+
 def test_order_class(connected):
     from pymt5adapter.order import Order, create_order_request
-    control = dict(symbol="EURUSD", action=mt5.TRADE_ACTION_DEAL, type=mt5.ORDER_TYPE_BUY, price=1.2345, comment="control")
+    control = dict(symbol="EURUSD", action=mt5.TRADE_ACTION_DEAL, type=mt5.ORDER_TYPE_BUY, price=1.2345,
+                   comment="control")
     order = Order(control)
     assert order.request() == control
-    order.comment="control"
+    order.comment = "control"
     assert order.request() == control
     order(control, type=mt5.ORDER_TYPE_BUY)
     assert order.request() == control
@@ -53,6 +64,7 @@ def test_order_class(connected):
         tick = mt5.symbol_info_tick(symbol.name)
         result = buy_order(symbol=symbol, volume=1.0).send()
         assert isinstance(result, mt5.OrderSendResult)
+
 
 def test_copy_rates(connected):
     with connected:
@@ -266,7 +278,6 @@ def test_copy_ticks_range(connected):
         last_bar_time = mt5.copy_rates_from_pos(symbol.name, mt5.TIMEFRAME_M1, 0, 1)[0]['time']
         time_to = datetime.fromtimestamp(last_bar_time, tz=timezone.utc)
         time_from = time_to - timedelta(minutes=3)
-
 
         for i in range(20):
             ticks = mt5.copy_ticks_range(symbol.name, time_from, time_to, mt5.COPY_TICKS_ALL)

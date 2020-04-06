@@ -4,26 +4,31 @@ from .types import *
 
 
 def any_symbol(symbol):
+    """Pass any symbol object with a name property or string.
+
+    :param symbol: Any symbol.
+    :return: Symbol as string.
+    """
     try:
         return symbol.name
     except AttributeError:
         return symbol
 
 
+def reduce_args(kwargs: dict) -> dict:
+    return {k: v for k, v in kwargs.items() if v is not None and k != 'kwargs'}
+
+
+def reduce_args_by_keys(d: dict, keys: Iterable) -> dict:
+    return {k: v for k, v in d.items() if k in keys and v is not None}
+
+
 def reduce_combine(d1: dict, d2: dict):
-    d1 = {k: v for k, v in d1.items() if v is not None}
+    d1 = reduce_args(d1)
     for k, v in d2.items():
         if v is not None:
             d1[k] = v
     return d1
-
-
-def clean_args(kwargs: dict) -> dict:
-    return {k: v for k, v in kwargs.items() if v is not None and k != 'kwargs'}
-
-
-def reduce_dict(d: dict, keys: Iterable) -> dict:
-    return {k: v for k, v in d.items() if k in keys and v is not None}
 
 
 def args_to_str(args: tuple, kwargs: dict):
@@ -42,7 +47,7 @@ def is_rates_array(array):
 
 def get_ticket_type_stuff(func, *, symbol, group, ticket, function):
     d = locals().copy()
-    kw = reduce_dict(d, ['symbol', 'group', 'ticket'])
+    kw = reduce_args_by_keys(d, ['symbol', 'group', 'ticket'])
     items = func(**kw)
     # if magic:
     #     items = filter(lambda p: p.magic == magic, items)
@@ -52,7 +57,7 @@ def get_ticket_type_stuff(func, *, symbol, group, ticket, function):
 
 
 def get_history_type_stuff(func, args):
-    args = clean_args(args)
+    args = reduce_args(args)
     function = args.pop('function', None)
     datetime_from = args.get('datetime_from', None)
     datetime_to = args.get('datetime_to', None)
@@ -69,27 +74,9 @@ def get_history_type_stuff(func, args):
 
 
 def do_trade_action(func, args):
-    cleaned = clean_args(args)
+    cleaned = reduce_args(args)
     request = cleaned.pop('request', {})
     symbol = cleaned.pop('symbol', None) or request.pop('symbol', None)
     cleaned['symbol'] = any_symbol(symbol)
     order_request = reduce_combine(request, cleaned)
     return func(order_request)
-
-def as_dict(data: Any):
-    try:
-        return as_dict(data._asdict())
-    except AttributeError:
-        T = type(data)
-        if T is list or T is tuple:
-            return T(as_dict(i) for i in data)
-        if T is dict:
-            return {k: as_dict(v) for k, v in data.items()}
-        return data
-
-# def namedtuples_to_dicts(item):
-#     if hasattr(item, '_asdict'):
-#         return item._asdict()
-#     if type(item) is tuple:
-#         return tuple(map(namedtuples_to_dicts, item))
-#     return item

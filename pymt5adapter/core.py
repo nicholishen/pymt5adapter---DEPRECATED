@@ -60,7 +60,7 @@ def initialize(path: str = None,
     :return: Returns True in case of successful connection to the MetaTrader 5 terminal, otherwise - False.
     """
     args = locals().copy()
-    args = _h.clean_args(args)
+    args = _h.reduce_args(args)
     result = _mt5.initialize(**args)
     return result
 
@@ -82,7 +82,7 @@ def login(login: int, *,
     :return: True if success.
     """
     args = locals().copy()
-    args = _h.clean_args(args)
+    args = _h.reduce_args(args)
     login = args.pop('login')
     return _mt5.login(login, **args)
 
