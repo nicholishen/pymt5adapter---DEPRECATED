@@ -246,10 +246,13 @@ RES_E_INTERNAL_FAIL_INIT = -10003  # internal IPC initialization fail
 RES_E_INTERNAL_FAIL_CONN = -10004  # internal IPC no ipc
 RES_E_INTERNAL_FAIL_TIMEOUT = -10005  # internal timeout
 # CUSTOM ERROR CODES ----------------------------------------------------------------------
-RES_X_AUTO_TRADE_DISABLED = -20000  # terminal auto-trading is disabled
-RES_X_REAL_ACCOUNT_DISABLED = -20001  # REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER
+RES_X_AUTO_TRADE_DISABLED = -200_000  # terminal auto-trading is disabled
+RES_X_REAL_ACCOUNT_DISABLED = -200_001  # REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER
+RES_X_TERMINAL_VERSION_OUTDATED = -200_002 #terminal version is out of date and does not support the current feature.
+RES_X_UNKNOWN_ERROR = -200_003
 
 
+MIN_TERMINAL_BUILD = 2375
 MAX_BARS= 3000
 MQL_TRADE_REQUEST_PROPS = dict(
     action=int,
