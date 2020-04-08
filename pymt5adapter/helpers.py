@@ -10,15 +10,23 @@ def as_dict_all(data: Any):
     :param data: Any API returned result from the MetaTrader5 API
     :return:
     """
-    try:
+    if hasattr(data, '_asdict'):  # this is about twice as fast as try, except!
         return as_dict_all(data._asdict())
-    except AttributeError:
-        T = type(data)
-        if T is tuple or T is list:
-            return T(as_dict_all(i) for i in data)
-        if T is dict:
-            return {k: as_dict_all(v) for k, v in data.items()}
-        return data
+    T = type(data)
+    if T is tuple or T is list:
+        return T(as_dict_all(i) for i in data)
+    if T is dict:
+        return {k: as_dict_all(v) for k, v in data.items()}
+    return data
+    # try:
+    #     return as_dict_all(data._asdict())
+    # except AttributeError:
+    #     T = type(data)
+    #     if T is tuple or T is list:
+    #         return T(as_dict_all(i) for i in data)
+    #     if T is dict:
+    #         return {k: as_dict_all(v) for k, v in data.items()}
+    #     return data
 
 
 def any_symbol(symbol):
