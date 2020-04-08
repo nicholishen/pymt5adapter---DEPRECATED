@@ -26,11 +26,33 @@ def make_kwargs_func(func):
 
 def test_as_dict_all(connected):
     from pymt5adapter import as_dict_all
+    from typing import Iterable
+    # from time import perf_counter_ns
+
+    def no_namedtuples(item):
+        if isinstance(item, Iterable) and not isinstance(item, str):
+            for i in item:
+                if not no_namedtuples(i):
+                    return False
+        if isinstance(item, dict):
+            for k, v in item.items():
+                if not no_namedtuples(v):
+                    return False
+        if hasattr(item, '_asdict'):
+            return False
+        return True
+
     with connected:
         deals = mt5.history_deals_get()[:3]
         mutated_deals = as_dict_all(deals)
         assert len(deals) == len(mutated_deals)
         assert all(isinstance(d, dict) for d in mutated_deals)
+        symbols = mt5.symbols_get()
+        # b = perf_counter_ns()
+        symbols = as_dict_all(symbols)
+        # total = perf_counter_ns() - b
+        assert no_namedtuples(symbols)
+        # print(f"as_dict_all_time = {total / 1000}")
 
 
 def test_trade_class(connected):
@@ -68,9 +90,10 @@ def test_order_class(connected):
 
 def test_copy_rates(connected):
     with connected:
+        maxbars = mt5.terminal_info().maxbars
         s = first_symbol().name
-        rates = mt5.copy_rates(s, mt5.TIMEFRAME_M1, count=10000)
-        print(len(rates))
+        rates = mt5.copy_rates(s, mt5.TIMEFRAME_M1, count=maxbars)
+        assert len(rates) > 0
 
 
 def test_raise_on_errors():
