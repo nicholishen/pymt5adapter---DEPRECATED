@@ -9,7 +9,7 @@ with open('LICENSE') as f:
 
 setup(
     name='pymt5adapter',
-    version='0.1.11',
+    version='0.1.12',
     description='A drop in replacement wrapper for the MetaTrader5 package',
     long_description_content_type='text/markdown',
     long_description=readme,
@@ -19,5 +19,5 @@ setup(
     license='MIT',
     packages=find_packages(exclude=('tests', 'docs')),
     install_requires = ['MetaTrader5==5.0.31'],
-    python_requires='>=3.8',
+    python_requires='>=3.6',
 )
