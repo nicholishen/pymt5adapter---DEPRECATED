@@ -1,5 +1,6 @@
 import enum
 import functools
+import re
 from datetime import datetime
 from datetime import timedelta
 from typing import Callable
@@ -7,8 +8,12 @@ from typing import Iterable
 from typing import List
 from typing import Type
 from typing import Union
+import math
 
 import requests
+
+BASE_URL = "https://www.mql5.com"
+OMIT_RESULT_KEYS = ['FullDate']
 
 
 class Importance(enum.IntFlag):
@@ -43,8 +48,10 @@ def _get_calendar_events(datetime_from: datetime,
                          datetime_to: datetime,
                          importance: int,
                          currencies: int,
+                         language: str = None,
                          ) -> List[dict]:
-    url = "https://www.mql5.com/en/economic-calendar/content"
+    lang = 'en' if language is None else language
+    url = BASE_URL + f"/{lang}/economic-calendar/content"
     headers = {"x-requested-with": "XMLHttpRequest"}
     time_format = "%Y-%m-%dT%H:%M:%S"
     data = {
@@ -54,26 +61,51 @@ def _get_calendar_events(datetime_from: datetime,
         "importance": importance,
         "currencies": currencies,
     }
-    events = requests.post(url=url, headers=headers, data=data).json()
+    response = requests.post(url=url, headers=headers, data=data)
+    events = response.json()
     filtered_events = []
     for e in events:
-        e['ReleaseDate'] = time = e['ReleaseDate'] / 1000
-        t = datetime.fromtimestamp(time)
-        if datetime_from <= t <= datetime_to:
+        time = datetime.fromtimestamp(e['ReleaseDate'] / 1000)
+        if datetime_from <= time <= datetime_to:
+            e['Url'] = BASE_URL + e['Url']
+            e['ReleaseDate'] = time
+            e['request'] = data
             filtered_events.append(e)
-    return events
+    filtered_events = [
+        {_camel_to_snake(k): v for k, v in x.items() if k not in OMIT_RESULT_KEYS}
+        for x in filtered_events
+    ]
+    return filtered_events
 
 
-def _round_time_to_mins(time: datetime, round_minutes: int):
-    secs = round_minutes * 60.0
-    res = round(time.timestamp() / secs, 0) * secs
+def _normalize_time(f, time: datetime, minutes: int):
+    secs = minutes * 60
+    res = f(time.timestamp() / secs) * secs
     new_time = datetime.fromtimestamp(res)
     return new_time
+
+
+def _time_ceil(time: datetime, minutes: int):
+    return _normalize_time(math.ceil, time, minutes)
+
+
+def _time_floor(time: datetime, minutes: int):
+    return _normalize_time(math.floor, time, minutes)
+
 
 
 def _split_pairs(p: Iterable[str]):
     for s in p:
         yield from (s,) if len(s) < 6 else (s[:3], s[3:6])
+
+
+def _camel_to_snake(w):
+    if (c := _camel_to_snake.pattern.findall(w)):
+        return '_'.join(map(str.lower, c))
+    return w
+
+
+_camel_to_snake.pattern = re.compile(r'[A-Z][a-z]+')
 
 
 @functools.lru_cache
@@ -101,24 +133,51 @@ def calendar_events(time_to: Union[datetime, timedelta] = None,
                     function: Callable = None,
                     round_minutes: int = 15,
                     cache_clear: bool = False,
+                    language: str = None,
                     **kwargs,
                     ) -> List[dict]:
+    """Get economic events from mql5.com/calendar. A call with empty args will results in all events for the next week.
+    Since the function is memoized, the time is rounded to ``round_minutes`` and cached. This avoids repeat requests
+    to the mql5.com server. In order to refresh the results on subsequest function calls you'll need to set the
+    ``cache_clear`` param to True.
+
+    :param time_to: Can be a timedelta or datetime object. If timedelta then the to time is calculated as
+        datetime.now() + time_to. If the the time_from param is specified the the time_to will be calculated as
+        time_from + time_to. Can also do a history look-back by passing in a negative timedelta to this param.
+    :param time_from: Can be a timedelta or datetime object. If a timedelta object is passed then the time_from is
+        calculated as time_from + now(), thus it needs to be a negative delta.
+    :param importance: Can be int flags from the Importance enum class, and iterable of strings or a (space and/or
+        comma separated string)
+    :param currencies: Can be int flags from the Importance enum class, and iterable of strings or a (space and/or
+        comma separated string) Pairs are automatically separated to the respective currency codes.
+    :param function: A callback function that receives an event dict and returns bool for filtering.
+    :param round_minutes: Round the number of minutes to this factor. Rounding aides the memoization of parameters.
+    :param cache_clear: Clear the memo cache to refresh events from the server.
+    :param language: The language code for the calendar. Default is 'en'
+    :param kwargs:
+    :return:
+    """
     if cache_clear:
         _get_calendar_events.cache_clear()
     now = datetime.now()
     if time_to is None and time_from is None:
         time_to = now + timedelta(weeks=1)
-    time_from, time_to = time_from or now, time_to or now
-    _f = lambda x: now + x if isinstance(x, timedelta) else x
-    time_from, time_to = _f(time_from), _f(time_to)
+    time_from, time_to = (time_from or now, time_to or now)
+    _f = lambda x: (now + x) if isinstance(x, timedelta) else x
+    time_from = _f(time_from)  # time_from must go first in order to mutate it then add time_to
+    time_to = _f(time_to)
     if time_from > time_to:
         time_from, time_to = time_to, time_from
-    time_from = _round_time_to_mins(time_from, round_minutes)
-    time_to = _round_time_to_mins(time_to, round_minutes)
+    time_from = _time_floor(time_from, round_minutes)
+    time_to = _time_ceil(time_to, round_minutes)
     _f = lambda x: tuple(x) if isinstance(x, Iterable) and not isinstance(x, str) else x
     importance, currencies = _f(importance), _f(currencies)
     i_flag, c_flag = _make_flag(Importance, importance), _make_flag(Currency, currencies)
-    events = _get_calendar_events(datetime_from=time_from, datetime_to=time_to, importance=i_flag, currencies=c_flag)
+    events = _get_calendar_events(datetime_from=time_from,
+                                  datetime_to=time_to,
+                                  importance=i_flag,
+                                  currencies=c_flag,
+                                  language=language)
     if function:
         events = list(filter(function, events))
     return events
