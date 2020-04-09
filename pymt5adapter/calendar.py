@@ -12,8 +12,10 @@ import math
 
 import requests
 
-BASE_URL = "https://www.mql5.com"
-OMIT_RESULT_KEYS = ['FullDate']
+__all__ = ['calendar_events', 'Importance', 'Currency']
+
+_BASE_URL = "https://www.mql5.com"
+_OMIT_RESULT_KEYS = ['FullDate']
 
 
 class Importance(enum.IntFlag):
@@ -51,7 +53,7 @@ def _get_calendar_events(datetime_from: datetime,
                          language: str = None,
                          ) -> List[dict]:
     lang = 'en' if language is None else language
-    url = BASE_URL + f"/{lang}/economic-calendar/content"
+    url = _BASE_URL + f"/{lang}/economic-calendar/content"
     headers = {"x-requested-with": "XMLHttpRequest"}
     time_format = "%Y-%m-%dT%H:%M:%S"
     data = {
@@ -67,12 +69,12 @@ def _get_calendar_events(datetime_from: datetime,
     for e in events:
         time = datetime.fromtimestamp(e['ReleaseDate'] / 1000)
         if datetime_from <= time <= datetime_to:
-            e['Url'] = BASE_URL + e['Url']
+            e['Url'] = _BASE_URL + e['Url']
             e['ReleaseDate'] = time
             e['request'] = data
             filtered_events.append(e)
     filtered_events = [
-        {_camel_to_snake(k): v for k, v in x.items() if k not in OMIT_RESULT_KEYS}
+        {_camel_to_snake(k): v for k, v in x.items() if k not in _OMIT_RESULT_KEYS}
         for x in filtered_events
     ]
     return filtered_events
@@ -91,7 +93,6 @@ def _time_ceil(time: datetime, minutes: int):
 
 def _time_floor(time: datetime, minutes: int):
     return _normalize_time(math.floor, time, minutes)
-
 
 
 def _split_pairs(p: Iterable[str]):
