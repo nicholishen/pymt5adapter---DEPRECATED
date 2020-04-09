@@ -117,7 +117,13 @@ class Order:
 
     def request(self) -> dict:
         # TODO check this against a control. Make sure it works when passing request as well as when overriding the rew.
-        req = {k: v for k in self.__slots__ if (v := getattr(self, k)) is not None}
+        req = {}
+        for k in self.__slots__:
+            v = getattr(self, k)
+            if v is not None:
+                req[k] = v
+        # refactor for older python versions
+        # req = {k: v for k in self.__slots__ if (v := getattr(self, k)) is not None}
         return req
 
     def check(self) -> OrderCheckResult:
