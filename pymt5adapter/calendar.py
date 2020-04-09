@@ -11,7 +11,7 @@ from typing import Union
 import requests
 
 
-class Impact(enum.IntFlag):
+class Importance(enum.IntFlag):
     HOLIDAY = enum.auto()
     LOW = enum.auto()
     MEDIUM = enum.auto()
@@ -55,6 +55,12 @@ def _get_calendar_events(datetime_from: datetime,
         "currencies": currencies,
     }
     events = requests.post(url=url, headers=headers, data=data).json()
+    filtered_events = []
+    for e in events:
+        e['ReleaseDate'] = time = e['ReleaseDate'] / 1000
+        t = datetime.fromtimestamp(time)
+        if datetime_from <= t <= datetime_to:
+            filtered_events.append(e)
     return events
 
 
@@ -71,7 +77,7 @@ def _split_pairs(p: Iterable[str]):
 
 
 @functools.lru_cache
-def _make_flag(enum_cls: Union[Type[Impact], Type[Currency]],
+def _make_flag(enum_cls: Union[Type[Importance], Type[Currency]],
                flags: Union[Iterable[str], int, str] = None
                ) -> int:
     if isinstance(flags, int):
@@ -93,7 +99,7 @@ def calendar_events(time_to: Union[datetime, timedelta] = None,
                     importance: Union[Iterable[str], str, int] = None,
                     currencies: Union[Iterable[str], str, int] = None,
                     function: Callable = None,
-                    round_minutes: int = 60,
+                    round_minutes: int = 15,
                     cache_clear: bool = False,
                     **kwargs,
                     ) -> List[dict]:
@@ -111,9 +117,8 @@ def calendar_events(time_to: Union[datetime, timedelta] = None,
     time_to = _round_time_to_mins(time_to, round_minutes)
     _f = lambda x: tuple(x) if isinstance(x, Iterable) and not isinstance(x, str) else x
     importance, currencies = _f(importance), _f(currencies)
-    i_flag, c_flag = _make_flag(Impact, importance), _make_flag(Currency, currencies)
+    i_flag, c_flag = _make_flag(Importance, importance), _make_flag(Currency, currencies)
     events = _get_calendar_events(datetime_from=time_from, datetime_to=time_to, importance=i_flag, currencies=c_flag)
     if function:
         events = list(filter(function, events))
     return events
-
