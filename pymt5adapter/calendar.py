@@ -150,7 +150,8 @@ def _camel_to_snake(w):
     except AttributeError:
         p = _camel_to_snake.pattern = re.compile(r'[A-Z][a-z0-9]*')
         cache = _camel_to_snake.cache = {}
-    if (words := p.findall(w)):
+    words = p.findall(w)
+    if words:
         res = '_'.join(map(str.lower, words))
         cache[w] = res
         return res
