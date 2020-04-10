@@ -142,12 +142,21 @@ def _split_pairs(p: Iterable[str]):
 
 
 def _camel_to_snake(w):
-    if (c := _camel_to_snake.pattern.findall(w)):
-        return '_'.join(map(str.lower, c))
-    return w
-
-
-_camel_to_snake.pattern = re.compile(r'[A-Z][a-z]*')
+    try:
+        cache = _camel_to_snake.cache
+        if w in cache:
+            return cache[w]
+        p = _camel_to_snake.pattern
+    except AttributeError:
+        p = _camel_to_snake.pattern = re.compile(r'[A-Z][a-z0-9]*')
+        cache = _camel_to_snake.cache = {}
+    if (words := p.findall(w)):
+        res = '_'.join(map(str.lower, words))
+        cache[w] = res
+        return res
+    else:
+        cache[w] = w
+        return w
 
 
 @functools.lru_cache(maxsize=128, typed=True)
