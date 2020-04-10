@@ -128,7 +128,7 @@ out_deals = mt5.history_deals_get(function=out_deal)
 
 ### Calendar Events
 Get economic calendar events from mql5.com using the `calendar_events` function. The function is memoized so
-so repeated calls pull event data from cache instead of repeated calls to the server. 
+repeated calls pulls event data from cache instead of repeated calls to the server. 
 
 Example:
 ```python
