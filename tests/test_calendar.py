@@ -15,7 +15,7 @@ def test_calendar_events():
     t2 = perf_counter()
     events = calendar_events(time_from=f, time_to=t, importance=Importance.HIGH)
     t2 = perf_counter() - t2
-    assert t2 * 1000 < t1 # verify cache speed
+    assert t2 * 1000 < t1  # verify cache speed
     assert type(events) is list
     assert len(events) > 0
     for e in events:
@@ -46,8 +46,9 @@ def test_camel_to_snake():
         'NItems'      : 'n_items'
     }
     for k, v in controls.items():
-        assert cal._camel_to_snake(k) == v
-
+        res =  cal._camel_to_snake(k)
+    for k, v in controls.items():
+        assert (res :=  cal._camel_to_snake(k)) == v
 
 def test_normalize_time():
     control_minutes = 15

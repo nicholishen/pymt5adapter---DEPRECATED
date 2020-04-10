@@ -27,7 +27,7 @@ def connected(*,
               logger: Callable = None,
               raise_on_errors: bool = False,
               debug_logging: bool = False,
-              # force_namedtuple: bool = False,
+              convert_namedtuples_to_dict:bool=False,
               **kwargs
               ) -> None:
     """Context manager for managing the connection with a MT5 terminal using the python ``with`` statement.
@@ -59,8 +59,9 @@ def connected(*,
     args = helpers.reduce_args(args)
     mt5_keys = ('path', 'portable', 'server', 'login', 'password', 'timeout')
     mt5_kwargs = {k: v for k, v in args.items() if k in mt5_keys}
-    _state.global_debugging = bool(debug_logging)
-    _state.raise_on_errors = bool(raise_on_errors)
+    _state.global_debugging = debug_logging
+    _state.raise_on_errors = raise_on_errors
+    # _state.convert_namedtuples_to_dict = convert_namedtuples_to_dict
     # _state.force_namedtuple = bool(force_namedtuple)
     _state.log = logger or print
     log = _state.log

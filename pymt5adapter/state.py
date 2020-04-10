@@ -6,12 +6,13 @@ class _GlobalState:
 
     def __init__(self):
         self.__dict__ = self.__shared_state
-        if 'global_debugging' not in self.__shared_state:
+        if 'max_bars' not in self.__shared_state:
             self.set_defaults()
 
     def set_defaults(self):
-        self.raise_on_errors = False
+        # self.convert_namedtuples_to_dict = False
         self.global_debugging = False
+        self.raise_on_errors = False
         self.max_bars = 100_000
         self.log = print
 

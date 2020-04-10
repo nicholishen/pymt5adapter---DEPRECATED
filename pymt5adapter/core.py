@@ -10,6 +10,7 @@ from . import helpers as _h
 from .state import global_state as _state
 from .types import *
 
+# _OMIT_FUNCS_FROM_CONVERSION = []
 
 class MT5Error(Exception):
     pass
@@ -17,19 +18,21 @@ class MT5Error(Exception):
 
 def _context_manager_modified(f):
     @functools.wraps(f)
-    def wrapper(*args, **kwargs):
+    def context_manager_modified_wrapper(*args, **kwargs):
         result = f(*args, **kwargs)
         if _state.global_debugging:
             call_sig = f"{f.__name__}({_h.args_to_str(args, kwargs)})"
             _state.log(f"[{call_sig}][{last_error()}][{str(result)[:80]}]")
         # make sure we log before we raise
-        if _state.raise_on_errors:
+        if _state.raise_on_errors and not result: # no need to check last error if we got a result
             error_code, description = last_error()
             if error_code != _const.RES_S_OK:
                 raise MT5Error(error_code, description)
+        # if _state.convert_namedtuples_to_dict and result:
+        #     result = _h.as_dict_all(result)
         return result
 
-    return wrapper
+    return context_manager_modified_wrapper
 
 
 @_context_manager_modified
@@ -167,10 +170,9 @@ def symbols_get(*,
     symbols = _mt5.symbols_get(group=group) if group else _mt5.symbols_get()
     if symbols is None and _state.raise_on_errors:
         build = version()
-        if build:
-            if build[1] < _const.MIN_TERMINAL_BUILD :
-                raise MT5Error(_const.RES_X_TERMINAL_VERSION_OUTDATED,
-                               "The terminal build needs to be updated to support this feature.")
+        if build and build[1] < _const.MIN_TERMINAL_BUILD :
+            raise MT5Error(_const.RES_X_TERMINAL_VERSION_OUTDATED,
+                           "The terminal build needs to be updated to support this feature.")
         else:
             error_code, des = last_error()
             if error_code == _const.RES_S_OK:
@@ -215,9 +217,14 @@ def symbol_info_tick(symbol) -> Tick:
     :param symbol:
     :return:
     """
-    symbol = _h.any_symbol(symbol)
-    return _mt5.symbol_info_tick(symbol)
+    try:
+        return _mt5.symbol_info_tick(symbol)
+    except Exception:
+        symbol = _h.any_symbol(symbol)
+        return _mt5.symbol_info_tick(symbol)
 
+#direct access to API function without any added overhead
+symbol_info_tick_fast = _mt5.symbol_info_tick
 
 @_context_manager_modified
 def symbol_select(symbol, enable: bool = True) -> bool:
