@@ -45,87 +45,6 @@ class Currency(enum.IntFlag):
     INR = enum.auto()
 
 
-@functools.lru_cache
-def _get_calendar_events(datetime_from: datetime,
-                         datetime_to: datetime,
-                         importance: int,
-                         currencies: int,
-                         language: str = None,
-                         ) -> List[dict]:
-    lang = 'en' if language is None else language
-    url = _BASE_URL + f"/{lang}/economic-calendar/content"
-    headers = {"x-requested-with": "XMLHttpRequest"}
-    time_format = "%Y-%m-%dT%H:%M:%S"
-    data = {
-        "date_mode" : 0,
-        "from"      : datetime_from.strftime(time_format),
-        "to"        : datetime_to.strftime(time_format),
-        "importance": importance,
-        "currencies": currencies,
-    }
-    response = requests.post(url=url, headers=headers, data=data)
-    events = response.json()
-    filtered_events = []
-    for e in events:
-        time = datetime.fromtimestamp(e['ReleaseDate'] / 1000)
-        if datetime_from <= time <= datetime_to:
-            e['Url'] = _BASE_URL + e['Url']
-            e['ReleaseDate'] = time
-            e['request'] = data
-            filtered_events.append(e)
-    filtered_events = [
-        {_camel_to_snake(k): v for k, v in x.items() if k not in _OMIT_RESULT_KEYS}
-        for x in filtered_events
-    ]
-    return filtered_events
-
-
-def _normalize_time(f, time: datetime, minutes: int):
-    secs = minutes * 60
-    res = f(time.timestamp() / secs) * secs
-    new_time = datetime.fromtimestamp(res)
-    return new_time
-
-
-def _time_ceil(time: datetime, minutes: int):
-    return _normalize_time(math.ceil, time, minutes)
-
-
-def _time_floor(time: datetime, minutes: int):
-    return _normalize_time(math.floor, time, minutes)
-
-
-def _split_pairs(p: Iterable[str]):
-    for s in p:
-        yield from (s,) if len(s) < 6 else (s[:3], s[3:6])
-
-
-def _camel_to_snake(w):
-    if (c := _camel_to_snake.pattern.findall(w)):
-        return '_'.join(map(str.lower, c))
-    return w
-
-
-_camel_to_snake.pattern = re.compile(r'[A-Z][a-z]+')
-
-
-@functools.lru_cache
-def _make_flag(enum_cls: Union[Type[Importance], Type[Currency]],
-               flags: Union[Iterable[str], int, str] = None
-               ) -> int:
-    if isinstance(flags, int):
-        return int(flags)
-    if flags is None:
-        flags = enum_cls.__members__.keys()
-    elif isinstance(flags, str):
-        flags = flags.replace(',', ' ').split()
-    if enum_cls is Currency:
-        flags = _split_pairs(flags)
-    flags = [enum_cls.__members__.get(f, 0) for f in set(map(str.upper, flags))]
-    flag = functools.reduce(lambda x, y: x | y, flags)
-    return int(flag)
-
-
 def calendar_events(time_to: Union[datetime, timedelta] = None,
                     *,
                     time_from: Union[datetime, timedelta] = None,
@@ -158,8 +77,102 @@ def calendar_events(time_to: Union[datetime, timedelta] = None,
     :param kwargs:
     :return:
     """
+    cal_args = _construct_args(**locals())
     if cache_clear:
         _get_calendar_events.cache_clear()
+    events = _get_calendar_events(language=language, **cal_args)
+    if function:
+        events = list(filter(function, events))
+    return events
+
+
+@functools.lru_cache
+def _get_calendar_events(datetime_from: datetime,
+                         datetime_to: datetime,
+                         importance: int,
+                         currencies: int,
+                         language: str = None,
+                         ) -> List[dict]:
+    lang = 'en' if language is None else language
+    url = _BASE_URL + f"/{lang}/economic-calendar/content"
+    headers = {"x-requested-with": "XMLHttpRequest"}
+    time_format = "%Y-%m-%dT%H:%M:%S"
+    data = {
+        "date_mode" : 0,
+        "from"      : datetime_from.strftime(time_format),
+        "to"        : datetime_to.strftime(time_format),
+        "importance": importance,
+        "currencies": currencies,
+    }
+    response = requests.post(url=url, headers=headers, data=data)
+    events = response.json()
+    filtered_events = []
+    for e in events:
+        time = datetime.fromtimestamp(e['ReleaseDate'] / 1000)
+        if datetime_from <= time <= datetime_to:
+            e['Url'] = _BASE_URL + e['Url']
+            e['ReleaseDate'] = time
+            e['request'] = data
+            formatted_event = {}
+            for k, v in e.items():
+                if k not in _OMIT_RESULT_KEYS:
+                    formatted_event[_camel_to_snake(k)] = v
+            filtered_events.append(formatted_event)
+    return filtered_events
+
+
+def _normalize_time(f, time: datetime, minutes: int):
+    secs = minutes * 60
+    res = f(time.timestamp() / secs) * secs
+    new_time = datetime.fromtimestamp(res)
+    return new_time
+
+
+def _time_ceil(time: datetime, minutes: int):
+    return _normalize_time(math.ceil, time, minutes)
+
+
+def _time_floor(time: datetime, minutes: int):
+    return _normalize_time(math.floor, time, minutes)
+
+
+def _split_pairs(p: Iterable[str]):
+    for s in p:
+        yield from (s,) if len(s) < 6 else (s[:3], s[3:6])
+
+
+def _camel_to_snake(w):
+    if (c := _camel_to_snake.pattern.findall(w)):
+        return '_'.join(map(str.lower, c))
+    return w
+
+
+_camel_to_snake.pattern = re.compile(r'[A-Z][a-z]*')
+
+
+@functools.lru_cache(maxsize=128, typed=True)
+def _make_flag(enum_cls: Union[Type[Importance], Type[Currency]],
+               flags: Union[Iterable[str], int, str] = None
+               ) -> int:
+    if isinstance(flags, int):
+        return int(flags)
+    if flags is None:
+        flags = enum_cls.__members__.keys()
+    elif isinstance(flags, str):
+        flags = flags.replace(',', ' ').split()
+    if enum_cls is Currency:
+        flags = _split_pairs(flags)
+    flags = [enum_cls.__members__.get(f, 0) for f in set(map(str.upper, flags))]
+    flag = functools.reduce(lambda x, y: x | y, flags)
+    return int(flag)
+
+
+def _construct_args(**kw):
+    time_to = kw.get('time_to')
+    time_from = kw.get('time_from')
+    round_minutes = kw.get('round_minutes')
+    importance = kw.get('importance')
+    currencies = kw.get('currencies')
     now = datetime.now()
     if time_to is None and time_from is None:
         time_to = now + timedelta(weeks=1)
@@ -174,11 +187,5 @@ def calendar_events(time_to: Union[datetime, timedelta] = None,
     _f = lambda x: tuple(x) if isinstance(x, Iterable) and not isinstance(x, str) else x
     importance, currencies = _f(importance), _f(currencies)
     i_flag, c_flag = _make_flag(Importance, importance), _make_flag(Currency, currencies)
-    events = _get_calendar_events(datetime_from=time_from,
-                                  datetime_to=time_to,
-                                  importance=i_flag,
-                                  currencies=c_flag,
-                                  language=language)
-    if function:
-        events = list(filter(function, events))
-    return events
+    res_args = dict(datetime_to=time_to, datetime_from=time_from, importance=i_flag, currencies=c_flag)
+    return res_args
