@@ -1,5 +1,6 @@
 import enum
 import functools
+import math
 import re
 from datetime import datetime
 from datetime import timedelta
@@ -8,7 +9,6 @@ from typing import Iterable
 from typing import List
 from typing import Type
 from typing import Union
-import math
 
 import requests
 
