@@ -111,7 +111,7 @@ def _get_calendar_events(datetime_from: datetime,
         time = datetime.fromtimestamp(e['ReleaseDate'] / 1000)
         if datetime_from <= time <= datetime_to:
             e['Url'] = _BASE_URL + e['Url']
-            e['ReleaseDate'] = time
+            # e['ReleaseDate'] = time # TOO OPINIONATED JUST DO TIMESTAMP
             e['request'] = data
             formatted_event = {}
             for k, v in e.items():
