@@ -10,6 +10,7 @@ from . import helpers as _h
 from .state import global_state as _state
 from .types import *
 
+
 # _OMIT_FUNCS_FROM_CONVERSION = []
 
 class MT5Error(Exception):
@@ -24,7 +25,7 @@ def _context_manager_modified(f):
             call_sig = f"{f.__name__}({_h.args_to_str(args, kwargs)})"
             _state.log(f"[{call_sig}][{last_error()}][{str(result)[:80]}]")
         # make sure we log before we raise
-        if _state.raise_on_errors and not result: # no need to check last error if we got a result
+        if _state.raise_on_errors and not result:  # no need to check last error if we got a result
             error_code, description = last_error()
             if error_code != _const.RES_S_OK:
                 raise MT5Error(error_code, description)
@@ -170,13 +171,13 @@ def symbols_get(*,
     symbols = _mt5.symbols_get(group=group) if group else _mt5.symbols_get()
     if symbols is None and _state.raise_on_errors:
         build = version()
-        if build and build[1] < _const.MIN_TERMINAL_BUILD :
-            raise MT5Error(_const.RES_X_TERMINAL_VERSION_OUTDATED,
+        if build and build[1] < _const.MIN_TERMINAL_BUILD:
+            raise MT5Error(_const.ERROR_CODE.TERMINAL_VERSION_OUTDATED,
                            "The terminal build needs to be updated to support this feature.")
         else:
             error_code, des = last_error()
             if error_code == _const.RES_S_OK:
-                raise MT5Error(_const.RES_X_UNKNOWN_ERROR,
+                raise MT5Error(_const.ERROR_CODE.UNKNOWN_ERROR,
                                "Unknown Error. Is the terminal connected?")
     if regex:
         if isinstance(regex, str):
@@ -223,8 +224,10 @@ def symbol_info_tick(symbol) -> Tick:
         symbol = _h.any_symbol(symbol)
         return _mt5.symbol_info_tick(symbol)
 
-#direct access to API function without any added overhead
+
+# direct access to API function without any added overhead
 symbol_info_tick_fast = _mt5.symbol_info_tick
+
 
 @_context_manager_modified
 def symbol_select(symbol, enable: bool = True) -> bool:
@@ -704,3 +707,19 @@ def history_orders_get(datetime_from: datetime = None,
     """
     args = locals().copy()
     return _h.get_history_type_stuff(_mt5.history_orders_get, args)
+
+
+def period_seconds(timeframe):
+    """Get the number of seconds for the respective timeframe
+
+    :param timeframe:
+    :return:
+    """
+    return _const.PERIOD_SECONDS.get(int(timeframe))
+
+
+def trade_retcode_description(retcode):
+    try:
+        return _const.TRADE_RETCODE(int(retcode)).name
+    except (ValueError, AttributeError):
+        return "Unknown Trade Retcode"

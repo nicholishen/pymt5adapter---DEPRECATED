@@ -71,15 +71,15 @@ def connected(*,
         elif debug_logging:
             log("MT5 connection has been initialized.")
         acc_info = account_info()
-        if not enable_real_trading and acc_info.trade_mode == const.ACCOUNT_TRADE_MODE_REAL:
+        if not enable_real_trading and acc_info.trade_mode == const.ACCOUNT_TRADE_MODE.REAL:
             raise MT5Error(
-                const.RES_X_REAL_ACCOUNT_DISABLED,
+                const.ERROR_CODE.REAL_ACCOUNT_DISABLED,
                 "REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER")
         term_info = terminal_info()
         if ensure_trade_enabled and not term_info.trade_allowed:
             if debug_logging:
                 log("Failed to initialize because auto-trade is disabled in terminal.")
-            raise MT5Error(const.RES_X_AUTO_TRADE_DISABLED, "Terminal Auto-Trading is disabled.")
+            raise MT5Error(const.ERROR_CODE.AUTO_TRADING_DISABLED, "Terminal Auto-Trading is disabled.")
         _state.max_bars = term_info.maxbars
         yield
     finally:

@@ -55,7 +55,7 @@ class Symbol:
         return self.tick.volume
 
     def _daily(self, key):
-        rate = copy_rates_from_pos(self.name, const.TIMEFRAME_D1, 0, 1)
+        rate = copy_rates_from_pos(self.name, const.TIMEFRAME.D1, 0, 1)
         try:
             return rate[0][key]
         except:

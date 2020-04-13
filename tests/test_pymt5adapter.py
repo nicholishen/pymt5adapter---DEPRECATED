@@ -298,17 +298,22 @@ def test_copy_ticks_range(connected):
 
     with connected:
         symbol = first_symbol()
-        last_bar_time = mt5.copy_rates_from_pos(symbol.name, mt5.TIMEFRAME_M1, 0, 1)[0]['time']
+        last_bar_time = mt5.copy_rates_from_pos(symbol.name, mt5.TIMEFRAME.M1, 0, 1)[0]['time']
         time_to = datetime.fromtimestamp(last_bar_time, tz=timezone.utc)
         time_from = time_to - timedelta(minutes=3)
 
         for i in range(20):
-            ticks = mt5.copy_ticks_range(symbol.name, time_from, time_to, mt5.COPY_TICKS_ALL)
+            ticks = mt5.copy_ticks_range(symbol.name, time_from, time_to, mt5.COPY_TICKS.ALL)
             if len(ticks) > 0:
                 break
             time.sleep(1)
-        assert mt5.last_error()[0] == mt5.RES_S_OK
+        assert mt5.last_error()[0] == mt5.ERROR_CODE.OK
         assert len(ticks) > 0
+
+
+def test_period_seconds():
+    assert mt5.period_seconds(mt5.TIMEFRAME.M1) == 60
+    assert mt5.period_seconds(99999) is None
 
 
 if __name__ == "__main__":

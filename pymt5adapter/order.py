@@ -3,7 +3,7 @@ import copy
 from . import const
 from .const import MQL_TRADE_REQUEST_PROPS
 from .core import order_check
-from .core import order_send
+from .core import order_send, symbol_info_tick
 from .helpers import reduce_combine, any_symbol
 from .types import *
 
@@ -27,27 +27,27 @@ class Order:
 
     @classmethod
     def as_buy(cls, **kwargs):
-        return cls(action=const.TRADE_ACTION_DEAL, type=const.ORDER_TYPE_BUY, **kwargs)
+        return cls(action=const.TRADE_ACTION.DEAL, type=const.ORDER_TYPE.BUY, **kwargs)
 
     @classmethod
     def as_sell(cls, **kwargs):
-        return cls(action=const.TRADE_ACTION_DEAL, type=const.TRADE_ACTION_DEAL, **kwargs)
+        return cls(action=const.TRADE_ACTION.DEAL, type=const.TRADE_ACTION.DEAL, **kwargs)
 
     @classmethod
     def as_buy_limit(cls, **kwargs):
-        return cls(action=const.TRADE_ACTION_PENDING, type=const.ORDER_TYPE_BUY_LIMIT, **kwargs)
+        return cls(action=const.TRADE_ACTION.PENDING, type=const.ORDER_TYPE_BUY.LIMIT, **kwargs)
 
     @classmethod
     def as_sell_limit(cls, **kwargs):
-        return cls(action=const.TRADE_ACTION_PENDING, type=const.ORDER_TYPE_SELL_LIMIT, **kwargs)
+        return cls(action=const.TRADE_ACTION.PENDING, type=const.ORDER_TYPE_SELL.LIMIT, **kwargs)
 
     @classmethod
     def as_buy_stop(cls, **kwargs):
-        return cls(action=const.TRADE_ACTION_PENDING, type=const.ORDER_TYPE_BUY_STOP, **kwargs)
+        return cls(action=const.TRADE_ACTION.PENDING, type=const.ORDER_TYPE_BUY.STOP, **kwargs)
 
     @classmethod
     def as_sell_stop(cls, **kwargs):
-        return cls(action=const.TRADE_ACTION_PENDING, type=const.ORDER_TYPE_SELL_STOP, **kwargs)
+        return cls(action=const.TRADE_ACTION.PENDING, type=const.ORDER_TYPE_SELL.STOP, **kwargs)
 
     @classmethod
     def as_flatten(cls, position: TradePosition, **kwargs):
@@ -132,7 +132,17 @@ class Order:
 
     def send(self) -> OrderSendResult:
         # TODO test
-        res = order_send(self.request())
+        req = self.request()
+        action = req.get('action')
+        if action == const.TRADE_ACTION.DEAL:
+            price = req.get('price')
+            if price is None:
+                symbol = req.get('symbol')
+                if symbol:
+                    t = req.get('type')
+                    tick = symbol_info_tick(symbol)
+                    req['price'] = tick.ask if t == const.ORDER_TYPE.BUY else tick.bid
+        res = order_send(req)
         return res
 
     def copy(self) -> 'Order':
