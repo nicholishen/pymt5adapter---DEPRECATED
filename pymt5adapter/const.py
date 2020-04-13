@@ -28,6 +28,10 @@ TIMEFRAME_MN1 = 1 | 0xC000
 
 
 class TIMEFRAME(enum.IntEnum):
+    """timeframes, ENUM_TIMEFRAME
+
+    M1, M2, M3, M4, M5, M6, M10, M12, M15, M20, M30, H1, H2, H3, H4, H6, H8, H12, D1, W1, MN1
+    """
     M1 = 1
     M2 = 2
     M3 = 3
@@ -41,8 +45,8 @@ class TIMEFRAME(enum.IntEnum):
     M30 = 30
     H1 = 1 | 0x4000
     H2 = 2 | 0x4000
-    H4 = 4 | 0x4000
     H3 = 3 | 0x4000
+    H4 = 4 | 0x4000
     H6 = 6 | 0x4000
     H8 = 8 | 0x4000
     H12 = 12 | 0x4000
@@ -58,6 +62,10 @@ COPY_TICKS_TRADE = 2
 
 
 class COPY_TICKS(enum.IntEnum):
+    """ENUM_COPY_TICKS
+
+    ALL, INFO, TRADE
+    """
     ALL = -1
     INFO = 1
     TRADE = 2
@@ -74,12 +82,16 @@ TICK_FLAG_SELL = 0x40
 
 
 class TICK_FLAG(enum.IntFlag):
-    BID = TICK_FLAG_BID
-    ASK = TICK_FLAG_ASK
-    LAST = TICK_FLAG_LAST
-    VOLUME = TICK_FLAG_VOLUME
-    BUY = TICK_FLAG_BUY
-    SELL = TICK_FLAG_SELL
+    """ENUM_TICK_FLAG
+
+    BID, ASK, LAST, VOLUME, BUY, SELL
+    """
+    BID = 0x02
+    ASK = 0x04
+    LAST = 0x08
+    VOLUME = 0x10
+    BUY = 0x20
+    SELL = 0x40
 
 
 # position type, ENUM_POSITION_TYPE
@@ -88,8 +100,13 @@ POSITION_TYPE_SELL = 1  # Sell
 
 
 class POSITION_TYPE(enum.IntEnum):
+    """position type, ENUM_POSITION_TYPE
+
+    BUY, SELL
+    """
     BUY = POSITION_TYPE_BUY
     SELL = POSITION_TYPE_SELL
+
 
 
 # position reason, ENUM_POSITION_REASON

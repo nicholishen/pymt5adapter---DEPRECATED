@@ -18,15 +18,7 @@ def as_dict_all(data: Any):
     if T is dict:
         return {k: as_dict_all(v) for k, v in data.items()}
     return data
-    # try:
-    #     return as_dict_all(data._asdict())
-    # except AttributeError:
-    #     T = type(data)
-    #     if T is tuple or T is list:
-    #         return T(as_dict_all(i) for i in data)
-    #     if T is dict:
-    #         return {k: as_dict_all(v) for k, v in data.items()}
-    #     return data
+
 
 
 def any_symbol(symbol):
@@ -35,10 +27,10 @@ def any_symbol(symbol):
     :param symbol: Any symbol.
     :return: Symbol as string.
     """
-    try:
-        return symbol.name
-    except AttributeError:
-        return symbol
+    name = getattr(symbol, 'name', None)
+    if name is None:
+        name = symbol
+    return name
 
 
 def reduce_args(kwargs: dict) -> dict:

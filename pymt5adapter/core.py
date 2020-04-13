@@ -25,10 +25,10 @@ def _context_manager_modified(f):
             call_sig = f"{f.__name__}({_h.args_to_str(args, kwargs)})"
             _state.log(f"[{call_sig}][{last_error()}][{str(result)[:80]}]")
         # make sure we log before we raise
-        if _state.raise_on_errors and not result:  # no need to check last error if we got a result
+        if _state.raise_on_errors:  # no need to check last error if we got a result
             error_code, description = last_error()
-            if error_code != _const.RES_S_OK:
-                raise MT5Error(error_code, description)
+            if error_code != _const.ERROR_CODE.OK:
+                raise MT5Error(_const.ERROR_CODE(error_code), description)
         # if _state.convert_namedtuples_to_dict and result:
         #     result = _h.as_dict_all(result)
         return result

@@ -18,14 +18,20 @@ _BASE_URL = "https://www.mql5.com"
 _OMIT_RESULT_KEYS = ['FullDate']
 
 
-class Importance(enum.IntFlag):
+class _MyIntFlag(enum.IntFlag):
+    @classmethod
+    def all_flags(cls):
+        flags = functools.reduce(lambda x, y: x | y, cls.__members__.values())
+        return flags
+
+class Importance(_MyIntFlag):
     HOLIDAY = enum.auto()
     LOW = enum.auto()
     MEDIUM = enum.auto()
     HIGH = enum.auto()
 
 
-class Currency(enum.IntFlag):
+class Currency(_MyIntFlag):
     USD = enum.auto()
     EUR = enum.auto()
     JPY = enum.auto()
@@ -165,16 +171,16 @@ def _make_flag(enum_cls: Union[Type[Importance], Type[Currency]],
                flags: Union[Iterable[str], int, str] = None
                ) -> int:
     if isinstance(flags, int):
-        return int(flags)
+        return flags
     if flags is None:
-        flags = enum_cls.__members__.keys()
+        return enum_cls.all_flags()
     elif isinstance(flags, str):
         flags = flags.replace(',', ' ').split()
     if enum_cls is Currency:
         flags = _split_pairs(flags)
     flags = [enum_cls.__members__.get(f, 0) for f in set(map(str.upper, flags))]
-    flag = functools.reduce(lambda x, y: x | y, flags)
-    return int(flag)
+    flags = functools.reduce(lambda x, y: x | y, flags)
+    return flags
 
 
 def _construct_args(**kw):
