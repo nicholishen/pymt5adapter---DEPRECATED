@@ -12,17 +12,13 @@ from typing import Union
 
 import requests
 
+from .helpers import _MyIntFlag
+
 __all__ = ['calendar_events', 'Importance', 'Currency']
 
 _BASE_URL = "https://www.mql5.com"
 _OMIT_RESULT_KEYS = ['FullDate']
 
-
-class _MyIntFlag(enum.IntFlag):
-    @classmethod
-    def all_flags(cls):
-        flags = functools.reduce(lambda x, y: x | y, cls.__members__.values())
-        return flags
 
 class Importance(_MyIntFlag):
     HOLIDAY = enum.auto()
@@ -145,6 +141,7 @@ def _time_floor(time: datetime, minutes: int):
 def _split_pairs(p: Iterable[str]):
     for s in p:
         yield from (s,) if len(s) < 6 else (s[:3], s[3:6])
+
 
 
 def _camel_to_snake(w):

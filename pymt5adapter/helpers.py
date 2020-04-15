@@ -1,3 +1,5 @@
+import enum
+import functools
 from datetime import datetime
 
 from .types import *
@@ -18,7 +20,6 @@ def as_dict_all(data: Any):
     if T is dict:
         return {k: as_dict_all(v) for k, v in data.items()}
     return data
-
 
 
 def any_symbol(symbol):
@@ -98,3 +99,10 @@ def do_trade_action(func, args):
     cleaned['symbol'] = any_symbol(symbol)
     order_request = reduce_combine(request, cleaned)
     return func(order_request)
+
+
+class _MyIntFlag(enum.IntFlag):
+    @classmethod
+    def all_flags(cls):
+        flags = functools.reduce(lambda x, y: x | y, cls)
+        return flags

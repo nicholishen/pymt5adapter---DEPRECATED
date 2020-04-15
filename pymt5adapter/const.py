@@ -2,6 +2,7 @@ import enum
 
 MIN_TERMINAL_BUILD = 2375
 MAX_BARS = 3000
+MAX_TICKS = 1_000_000_000
 
 # timeframes
 TIMEFRAME_M1 = 1
