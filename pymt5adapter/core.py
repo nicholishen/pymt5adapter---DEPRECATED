@@ -21,10 +21,10 @@ def _context_manager_modified(f):
     @functools.wraps(f)
     def context_manager_modified_wrapper(*args, **kwargs):
         result = f(*args, **kwargs)
-        if _state.global_debugging:
+        if _state.debug_logging:
             call_sig = f"{f.__name__}({_h.args_to_str(args, kwargs)})"
-            _state.log(f"[{call_sig}][{last_error()}][{str(result)[:80]}]")
-        # make sure we log before we raise
+            _state.logger(f"[{call_sig}][{last_error()}][{str(result)[:80]}]")
+        # make sure we logger before we raise
         if _state.raise_on_errors:  # no need to check last error if we got a result
             error_code, description = last_error()
             if error_code != _const.ERROR_CODE.OK:

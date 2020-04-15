@@ -5,8 +5,9 @@ from datetime import timezone
 
 import pytest
 
-from pymt5adapter.state import global_state as state
 from .context import pymt5adapter as mt5
+from pymt5adapter.state import global_state as state
+from pymt5adapter import MT5Error
 
 
 # PYTEST SETUP
@@ -20,12 +21,49 @@ def connected():
     return context
 
 
+# def test_connected_class():
+#     connected = mt5.context.connected_class()
+#     with connected as conn:
+#         conn.raise_on_errors = True
+#         conn.debug_logging = True
+#         conn.
+
+
 def first_symbol():
     return mt5.symbols_get(function=lambda s: s.visible and s.trade_mode == mt5.SYMBOL_TRADE_MODE_FULL)[0]
 
 
 def make_kwargs_func(func):
     return lambda **kwargs: func(**kwargs)
+
+
+def test_mt5_connection_context():
+    state.set_defaults()
+    assert not state.debug_logging
+    assert not state.raise_on_errors
+    connected = mt5.connected(timeout=5000)
+    with connected as conn:
+        #make sure the conn is setting the global state from properties
+        assert not state.debug_logging
+        conn.debug_logging = True
+        assert state.debug_logging
+
+        assert not state.raise_on_errors
+        conn.raise_on_errors = True
+        assert state.raise_on_errors
+
+        with pytest.raises(MT5Error):
+            x = mt5.history_deals_get("sadf", "asdf")
+
+        conn.raise_on_errors = False
+        try:
+            x = mt5.history_deals_get("sadf", "asdf")
+        except MT5Error:
+            pytest.fail("Raised MT5Error when feature was toggled off")
+        print(conn.ping_terminal())
+        print(conn.ping_server())
+        # pass
+
 
 
 def test_terminal_version(connected):
@@ -92,7 +130,8 @@ def test_copy_ticks_range(connected):
 def test_copy_ticks_from(connected):
     with connected:
         symbol = first_symbol()
-        last_bar_time = datetime.now() - timedelta(minutes=1)#mt5.copy_rates_from_pos(symbol.name, mt5.TIMEFRAME.M1, 0, 1)[0]['time']
+        last_bar_time = datetime.now() - timedelta(
+            minutes=1)  # mt5.copy_rates_from_pos(symbol.name, mt5.TIMEFRAME.M1, 0, 1)[0]['time']
         print(last_bar_time)
         ticks = mt5.copy_ticks_from(symbol.name,
                                     datetime_from=last_bar_time,
@@ -130,20 +169,6 @@ def test_last_error_res_codes(connected):
         for code in defined_error_codes:
             assert isinstance(code, int)
 
-
-def test_mt5_connection_context():
-    state.set_defaults()
-    assert not state.global_debugging
-    assert not state.raise_on_errors
-    connection = mt5.connected(raise_on_errors=True, debug_logging=True)
-    with connection:
-        assert state.global_debugging
-        assert state.raise_on_errors
-        try:
-            x = mt5.history_deals_get("sadf", "asdf")
-        except mt5.MT5Error as e:
-            print(e)
-        # pass
 
 
 def test_order_class(connected):

@@ -1,9 +1,9 @@
 import contextlib
 import signal
 import sys
+import time
 
 from . import const
-from . import helpers
 from .core import account_info
 from .core import initialize
 from .core import last_error
@@ -14,79 +14,127 @@ from .state import global_state as _state
 from .types import *
 
 
-@contextlib.contextmanager
-def connected(*,
-              path: str = None,
-              portable: bool = None,
-              server: str = None,
-              login: int = None,
-              password: str = None,
-              timeout: int = None,
-              ensure_trade_enabled: bool = False,
-              enable_real_trading: bool = False,
-              logger: Callable = None,
-              raise_on_errors: bool = False,
-              debug_logging: bool = False,
-              convert_namedtuples_to_dict:bool=False,
-              **kwargs
-              ) -> None:
-    """Context manager for managing the connection with a MT5 terminal using the python ``with`` statement.
+class connected:
+    def __init__(self, *,
+                 path: str = None,
+                 portable: bool = None,
+                 server: str = None,
+                 login: int = None,
+                 password: str = None,
+                 timeout: int = None,
+                 ensure_trade_enabled: bool = None,
+                 enable_real_trading: bool = None,
+                 raise_on_errors: bool = None,
+                 debug_logging: bool = None,
+                 logger: Callable = None,
+                 **kwargs
+                 ):
+        """Context manager for managing the connection with a MT5 terminal using the python ``with`` statement.
 
-    >>> mt5_connected = mt5.connected(raise_on_errors=True, ensure_trade_enabled=True)
-    >>> with mt5_connected:
-    ...     print(mt5.symbols_get())
-    >>>
+        :param path:  Path to terminal.
+        :param portable: Load terminal in portable mode.
+        :param server:  Server name.
+        :param login:  Account login number.
+        :param password:  Account password.
+        :param timeout: Connection init timeout.
+        :param ensure_trade_enabled: Ensure that auto-trading is enabled. Will raise MT5Error when set to True and the terminal auto-trading is disabled.
+        :param enable_real_trading:  Must be explicitly set to True to run on a live account.
+        :param raise_on_errors: Automatically checks last_error() after each function call and will raise a Mt5Error when the error-code is not RES_S_OK
+        :param debug_logging: Logs each function call.
+        :param logger: Logging function. Will pass connection status messages to this function.
 
-    :param path:  Path to terminal.
-    :param portable: Load terminal in portable mode.
-    :param server:  Server name.
-    :param login:  Account login number.
-    :param password:  Account password.
-    :param timeout: Connection init timeout.
-    :param ensure_trade_enabled: Ensure that auto-trading is enabled. Will raise MT5Error when set to True and the terminal auto-trading is disabled.
-    :param enable_real_trading:  Must be explicitly set to True to run on a live account.
-    :param logger: Logging function. Will pass connection status messages to this function.
-    :param raise_on_errors: Automatically checks last_error() after each function call and will raise a Mt5Error when the error-code is not RES_S_OK
-    :param debug_logging: Logs each function call.
+        :param kwargs:
+        :return: None
 
-    :param kwargs:
-    :return: None
+        Note:
+           The param ``enable_real_trading`` must be set to True to work on live accounts.
+        """
+        self._init_kwargs = dict(path=path, portable=portable, server=server,
+                                 login=login, password=password, timeout=timeout, )
+        self._ensure_trade_enabled = ensure_trade_enabled
+        self._enable_real_trading = enable_real_trading
+        # managing global state
+        self._logger = logger
+        self._raise_on_errors = raise_on_errors
+        self._debug_logging = debug_logging
+        self._terminal_info = None
 
-    Note:
-        The param ``enable_real_trading`` must be set to True to work on live accounts.
-    """
-    args = locals().copy()
-    args = helpers.reduce_args(args)
-    mt5_keys = ('path', 'portable', 'server', 'login', 'password', 'timeout')
-    mt5_kwargs = {k: v for k, v in args.items() if k in mt5_keys}
-    _state.global_debugging = debug_logging
-    _state.raise_on_errors = raise_on_errors
-    # _state.convert_namedtuples_to_dict = convert_namedtuples_to_dict
-    # _state.force_namedtuple = bool(force_namedtuple)
-    _state.log = logger or print
-    log = _state.log
-    try:
-        if not initialize(**mt5_kwargs):
-            raise MT5Error(*last_error())
-        elif debug_logging:
-            log("MT5 connection has been initialized.")
-        acc_info = account_info()
-        if not enable_real_trading and acc_info.trade_mode == const.ACCOUNT_TRADE_MODE.REAL:
-            raise MT5Error(
-                const.ERROR_CODE.REAL_ACCOUNT_DISABLED,
-                "REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER")
-        term_info = terminal_info()
-        if ensure_trade_enabled and not term_info.trade_allowed:
-            if debug_logging:
-                log("Failed to initialize because auto-trade is disabled in terminal.")
-            raise MT5Error(const.ERROR_CODE.AUTO_TRADING_DISABLED, "Terminal Auto-Trading is disabled.")
-        _state.max_bars = term_info.maxbars
-        yield
-    finally:
+    def __enter__(self):
+        self._state_on_enter = _state.get_state()
+        self.logger = self.logger
+        self.raise_on_errors = self.raise_on_errors
+        self.debug_logging = self.debug_logging
+        try:
+            if not initialize(**self._init_kwargs):
+                raise MT5Error(*last_error())
+            elif self.debug_logging:
+                self.logger("MT5 connection has been initialized.")
+            if not self._enable_real_trading:
+                acc_info = account_info()
+                if acc_info.trade_mode == const.ACCOUNT_TRADE_MODE.REAL:
+                    raise MT5Error(
+                        const.ERROR_CODE.REAL_ACCOUNT_DISABLED,
+                        "REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER")
+            if self._ensure_trade_enabled:
+                term_info = terminal_info()
+                _state.max_bars = term_info.maxbars
+                if not term_info.trade_allowed:
+                    if self.debug_logging:
+                        self.logger("Failed to initialize because auto-trade is disabled in terminal.")
+                    raise MT5Error(const.ERROR_CODE.AUTO_TRADING_DISABLED, "Terminal Auto-Trading is disabled.")
+            return self
+        except:
+            self.__exit__(*sys.exc_info())
+            raise
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
         shutdown()
-        if debug_logging:
-            log("MT5 connection has been shutdown.")
-        _state.set_defaults()
+        _state.set_defaults(**self._state_on_enter)
+        if self.debug_logging:
+            self.logger("MT5 connection has been shutdown.")
+
+    @property
+    def logger(self):
+        return self._logger
+
+    @logger.setter
+    def logger(self, new_logger):
+        self._logger = new_logger or print
+        _state.logger = self._logger
+
+    @property
+    def debug_logging(self):
+        return self._debug_logging
+
+    @debug_logging.setter
+    def debug_logging(self, flag: bool):
+        _state.debug_logging = flag
+        self._debug_logging = flag
+
+    @property
+    def raise_on_errors(self) -> bool:
+        return self._raise_on_errors
+
+    @raise_on_errors.setter
+    def raise_on_errors(self, flag: bool):
+        _state.raise_on_errors = flag
+        self._raise_on_errors = flag
+
+    @property
+    def terminal_info(self) -> TerminalInfo:
+        return self._terminal_info
+
+    def ping_terminal(self) -> float:
+        timed = time.perf_counter()
+        self._terminal_info = terminal_info()
+        timed = time.perf_counter() - timed
+        return timed
+
+    def ping_server(self) -> float:
+        self.ping_terminal()
+        return self.terminal_info.ping_last
+
+
 
 
 def _sigterm_handler(signum, frame):
