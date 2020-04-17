@@ -333,15 +333,25 @@ def test_borg_state_class():
 
 def test_raise_on_errors():
     with mt5.connected(raise_on_errors=True):
-        with pytest.raises(mt5.MT5Error):
+        with pytest.raises(mt5.MT5Error) as e:
             _ = mt5.history_orders_total(',', ',')
     # does not raise
     with mt5.connected(raise_on_errors=False):
         try:
             _ = mt5.history_orders_total(',', ',')
-        except mt5.MT5Error:
+        except mt5.MT5Error as e:
             pytest.fail()
-
+    with mt5.connected(raise_on_errors=True) as conn:
+        conn.raise_on_errors = False
+        try:
+            _ = mt5.history_orders_total(',', ',')
+        except mt5.MT5Error as e:
+            pytest.fail()
+    with mt5.connected(raise_on_errors=True):
+        try:
+            _ = mt5.history_orders_total(',', ',')
+        except mt5.MT5Error as e:
+            print(e)
 
 # NEW STUFF
 def test_trade_class(connected):
