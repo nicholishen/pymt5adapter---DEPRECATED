@@ -112,7 +112,7 @@ MT5 connection has been shutdown.
 
 ```
 
-##Exception handling
+## Exception handling
 
 The `MetaTrader5` package does not raise exceptions and all errors fail silently
 by default. This behavior forces the developer to check each object for 
