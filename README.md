@@ -111,7 +111,9 @@ We modified the API to silence Exceptions at runtime
 MT5 connection has been shutdown.
 
 ```
+
 ##Exception handling
+
 The `MetaTrader5` package does not raise exceptions and all errors fail silently
 by default. This behavior forces the developer to check each object for 
 `None` or `empty` state and then call `last_error()` to resolve any possible errors.
