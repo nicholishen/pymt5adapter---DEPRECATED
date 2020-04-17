@@ -23,7 +23,7 @@ def _context_manager_modified(f):
             call_sig = f"{f.__name__}({_h.args_to_str(args, kwargs)})"
             _state.logger(f"[{call_sig}][{mt5_last_error()}][{str(result)[:80]}]")
         # make sure we logger before we raise
-        if _state.raise_on_errors:  # no need to check last error if we got a result
+        if _state.raise_on_errors and not result:  # no need to check last error if we got a result
             error_code, description = mt5_last_error()
             if error_code != _const.ERROR_CODE.OK:
                 if error_code == _const.ERROR_CODE.INVALID_PARAMS:
