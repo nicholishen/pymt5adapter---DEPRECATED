@@ -12,7 +12,10 @@ from .types import *
 
 
 class MT5Error(Exception):
-    pass
+    def __init__(self, error_code: _const.ERROR_CODE, description: str):
+        super().__init__()
+        self.error_code = error_code
+        self.description = description
 
 
 def _context_manager_modified(f):

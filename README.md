@@ -1,6 +1,6 @@
 # Introduction
 
-`pymt5adapter` is a wrapper and drop-in replacement (wrapper) for the `MetaTrader5` python package by MetaQuotes. 
+`pymt5adapter` is a drop-in replacement (wrapper) for the `MetaTrader5` python package by MetaQuotes. 
 The API functions simply pass through values from the `MetaTrader5` functions, but adds the following functionality
 in addition to a more pythonic interface:
 
@@ -110,6 +110,36 @@ We modified the API to silence Exceptions at runtime
 [shutdown()][(1, 'Success')][True]
 MT5 connection has been shutdown.
 
+```
+##Exception handling
+The `MetaTrader5` package does not raise exceptions and all errors fail silently
+by default. This behavior forces the developer to check each object for 
+`None` or `empty` state and then call `last_error()` to resolve any possible errors.
+One of the primary features of the context manager is extend the ability
+to toggle exceptions on/off globally. All raised exceptions are of type `MT5Error`. The
+`MT5Error` exception has two properties which are `error_code` and `description`. 
+
+```python
+with mt5.connected(raise_on_errors=True) as conn:
+    try:
+        invalid_args = mt5.history_deals_get('sdf', 'asdfa')
+        print(invalid_args)
+    except mt5.MT5Error as e:
+        print(e.error_code, e.description)
+        if e.error_code is mt5.ERROR_CODE.INVALID_PARAMS:
+            print('You can use "is" to check identity since we use enums')
+    conn.raise_on_errors = False
+    print('Errors will not raise exceptions and default behavior has bene restored at runtime')
+    invalid_args = mt5.history_deals_get('sdf', 'asdfa')
+    if not invalid_args:
+        print(mt5.last_error())
+```
+OUTPUT
+```
+ERROR_CODE.INVALID_PARAMS Invalid arguments('sdf', 'asdfa'){}
+You can use "is" to check identity since we use enums
+Errors will not raise exceptions and default behavior has bene restored at runtime
+(-2, 'Invalid arguments')
 ```
 
 # Additional features not included in the `MetaTrader5` package
