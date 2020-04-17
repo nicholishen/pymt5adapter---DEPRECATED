@@ -64,8 +64,8 @@ class connected:
 
     def __enter__(self):
         self._state_on_enter = _state.get_state()
-        self.raise_on_errors = self.raise_on_errors
-        self.debug_logging = self.debug_logging
+        _state.raise_on_errors = self.raise_on_errors
+        _state.debug_logging = self.debug_logging
         try:
             if not mt5_initialize(**self._init_kwargs):
                 raise MT5Error(*mt5_last_error())
