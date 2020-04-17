@@ -17,7 +17,7 @@ from .helpers import _MyIntFlag
 __all__ = ['calendar_events', 'Importance', 'Currency']
 
 _BASE_URL = "https://www.mql5.com"
-_OMIT_RESULT_KEYS = ['FullDate']
+_OMIT_RESULT_KEYS = ['FullDate', ]
 
 
 class Importance(_MyIntFlag):
@@ -143,7 +143,6 @@ def _split_pairs(p: Iterable[str]):
         yield from (s,) if len(s) < 6 else (s[:3], s[3:6])
 
 
-
 def _camel_to_snake(w):
     try:
         cache = _camel_to_snake.cache
@@ -151,16 +150,13 @@ def _camel_to_snake(w):
             return cache[w]
         p = _camel_to_snake.pattern
     except AttributeError:
-        p = _camel_to_snake.pattern = re.compile(r'[A-Z][a-z0-9]*')
         cache = _camel_to_snake.cache = {}
+        p = _camel_to_snake.pattern = re.compile(r'[A-Z][a-z0-9]*')
     words = p.findall(w)
     if words:
-        res = '_'.join(map(str.lower, words))
-        cache[w] = res
-        return res
-    else:
-        cache[w] = w
-        return w
+        w = '_'.join(map(str.lower, words))
+    cache[w] = w
+    return w
 
 
 @functools.lru_cache(maxsize=128, typed=True)

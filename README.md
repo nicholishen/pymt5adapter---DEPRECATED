@@ -81,12 +81,20 @@ mt5_connected = mt5.connected(
     debug_logging=True,        # default is False
     logger=print,              # default is print
 )
-with mt5_connected:
+with mt5_connected as conn:
     try:
         num_orders = mt5.history_orders_total("invalid", "arguments")
     except mt5.MT5Error as e:
         print("We modified the API to throw exceptions for all functions.")
         print(f"Error = {e}")
+    # change error handling behavior at runtime
+    conn.raise_on_errors = False
+    try:
+        num_orders = mt5.history_orders_total("invalid", "arguments")
+    except mt5.MT5Error:
+        pass
+    else:
+        print('We modified the API to silence Exceptions at runtime')
 
 ```
 
@@ -94,11 +102,11 @@ Output:
 
 ```
 MT5 connection has been initialized.
-[account_info()][(1, 'Success')][AccountInfo(login=1234567, trade_mode=0, leverage=100, limit_orders=0, margin_so]
-[terminal_info()][(1, 'Success')][TerminalInfo(community_account=False, community_connection=False, connected=True]
 [history_orders_total(invalid, arguments)][(-2, 'Invalid arguments')][None]
 We modified the API to throw exceptions for all functions.
-Error = (-2, 'Invalid arguments')
+Error = (<ERROR_CODE.INVALID_PARAMS: -2>, "Invalid arguments('invalid', 'arguments'){}")
+[history_orders_total(invalid, arguments)][(-2, 'Invalid arguments')][None]
+We modified the API to silence Exceptions at runtime
 [shutdown()][(1, 'Success')][True]
 MT5 connection has been shutdown.
 

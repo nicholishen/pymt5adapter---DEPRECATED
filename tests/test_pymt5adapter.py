@@ -60,8 +60,9 @@ def test_mt5_connection_context():
             x = mt5.history_deals_get("sadf", "asdf")
         except MT5Error:
             pytest.fail("Raised MT5Error when feature was toggled off")
-        print(conn.ping_terminal())
-        print(conn.ping_server())
+        ping = conn.ping()
+        print(ping['server'])
+        print(ping['terminal'])
         # pass
 
 

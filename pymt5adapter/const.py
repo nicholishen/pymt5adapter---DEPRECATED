@@ -1,4 +1,5 @@
 import enum
+from .helpers import _MyIntFlag
 
 MIN_TERMINAL_BUILD = 2375
 MAX_BARS = 3000
@@ -82,7 +83,7 @@ TICK_FLAG_BUY = 0x20
 TICK_FLAG_SELL = 0x40
 
 
-class TICK_FLAG(enum.IntFlag):
+class TICK_FLAG(_MyIntFlag):
     """ENUM_TICK_FLAG
 
     BID, ASK, LAST, VOLUME, BUY, SELL
@@ -107,7 +108,6 @@ class POSITION_TYPE(enum.IntEnum):
     """
     BUY = POSITION_TYPE_BUY
     SELL = POSITION_TYPE_SELL
-
 
 
 # position reason, ENUM_POSITION_REASON

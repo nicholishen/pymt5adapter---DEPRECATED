@@ -28,9 +28,7 @@ def any_symbol(symbol):
     :param symbol: Any symbol.
     :return: Symbol as string.
     """
-    name = getattr(symbol, 'name', None)
-    if name is None:
-        name = symbol
+    name = getattr(symbol, 'name', symbol)
     return name
 
 

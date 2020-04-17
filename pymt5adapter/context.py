@@ -4,12 +4,13 @@ import sys
 import time
 
 from . import const
-from .core import account_info
-from .core import initialize
-from .core import last_error
+from .core import mt5_account_info
+from .core import mt5_initialize
+from .core import mt5_last_error
+from .core import mt5_terminal_info
 from .core import MT5Error
 from .core import shutdown
-from .core import terminal_info
+from .helpers import reduce_args
 from .state import global_state as _state
 from .types import *
 
@@ -49,34 +50,36 @@ class connected:
         Note:
            The param ``enable_real_trading`` must be set to True to work on live accounts.
         """
-        self._init_kwargs = dict(path=path, portable=portable, server=server,
-                                 login=login, password=password, timeout=timeout, )
+        self._init_kwargs = reduce_args(dict(
+            path=path, portable=portable, server=server,
+            login=login, password=password, timeout=timeout,
+        ))
         self._ensure_trade_enabled = ensure_trade_enabled
         self._enable_real_trading = enable_real_trading
         # managing global state
-        self._logger = logger
+        self.logger = logger
         self._raise_on_errors = raise_on_errors
         self._debug_logging = debug_logging
         self._terminal_info = None
 
     def __enter__(self):
         self._state_on_enter = _state.get_state()
-        self.logger = self.logger
         self.raise_on_errors = self.raise_on_errors
         self.debug_logging = self.debug_logging
         try:
-            if not initialize(**self._init_kwargs):
-                raise MT5Error(*last_error())
-            elif self.debug_logging:
+            if not mt5_initialize(**self._init_kwargs):
+                raise MT5Error(*mt5_last_error())
+
+            if self.debug_logging:
                 self.logger("MT5 connection has been initialized.")
             if not self._enable_real_trading:
-                acc_info = account_info()
+                acc_info = mt5_account_info()
                 if acc_info.trade_mode == const.ACCOUNT_TRADE_MODE.REAL:
                     raise MT5Error(
                         const.ERROR_CODE.REAL_ACCOUNT_DISABLED,
                         "REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER")
             if self._ensure_trade_enabled:
-                term_info = terminal_info()
+                term_info = self.terminal_info
                 _state.max_bars = term_info.maxbars
                 if not term_info.trade_allowed:
                     if self.debug_logging:
@@ -122,19 +125,23 @@ class connected:
 
     @property
     def terminal_info(self) -> TerminalInfo:
+        if self._terminal_info is None:
+            self._terminal_info = mt5_terminal_info()
         return self._terminal_info
 
-    def ping_terminal(self) -> float:
+    def ping(self) -> dict:
+        """Get ping in microseconds for the terminal and server.
+
+        :return: dict with 'server' and 'terminal' ping
+        """
         timed = time.perf_counter()
-        self._terminal_info = terminal_info()
-        timed = time.perf_counter() - timed
-        return timed
-
-    def ping_server(self) -> float:
-        self.ping_terminal()
-        return self.terminal_info.ping_last
-
-
+        self._terminal_info = mt5_terminal_info()
+        timed = int((time.perf_counter() - timed) * 1000)
+        res = {
+            'server'  : self.terminal_info.ping_last,
+            'terminal': timed
+        }
+        return res
 
 
 def _sigterm_handler(signum, frame):
