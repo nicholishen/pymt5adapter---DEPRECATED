@@ -14,6 +14,14 @@ from .helpers import reduce_args
 from .state import global_state as _state
 from .types import *
 
+from dataclasses import dataclass
+
+
+@dataclass
+class Ping:
+    terminal: int
+    trade_server: int
+
 
 class connected:
     def __init__(self, *,
@@ -28,6 +36,7 @@ class connected:
                  raise_on_errors: bool = None,
                  debug_logging: bool = None,
                  logger: Callable = None,
+                 return_as_dict: bool = None,
                  **kwargs
                  ):
         """Context manager for managing the connection with a MT5 terminal using the python ``with`` statement.
@@ -61,11 +70,13 @@ class connected:
         self._raise_on_errors = raise_on_errors
         self._debug_logging = debug_logging
         self._terminal_info = None
+        self._return_as_dict = return_as_dict
 
     def __enter__(self):
         self._state_on_enter = _state.get_state()
         _state.raise_on_errors = self.raise_on_errors
         _state.debug_logging = self.debug_logging
+        _state.return_as_dict = self.return_as_dict
         try:
             if not mt5_initialize(**self._init_kwargs):
                 raise MT5Error(*mt5_last_error())
@@ -77,7 +88,7 @@ class connected:
                 if acc_info.trade_mode == const.ACCOUNT_TRADE_MODE.REAL:
                     raise MT5Error(
                         const.ERROR_CODE.REAL_ACCOUNT_DISABLED,
-                        "REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER")
+                        "Real account trading has not been enabled in the context manager")
             if self._ensure_trade_enabled:
                 term_info = self.terminal_info
                 _state.max_bars = term_info.maxbars
@@ -129,7 +140,17 @@ class connected:
             self._terminal_info = mt5_terminal_info()
         return self._terminal_info
 
-    def ping(self) -> dict:
+    @property
+    def return_as_dict(self):
+        return self._return_as_dict
+
+    @return_as_dict.setter
+    def return_as_dict(self, flag:bool):
+        _state.return_as_dict = flag
+        self._return_as_dict = flag
+
+
+    def ping(self) -> Ping:
         """Get ping in microseconds for the terminal and server.
 
         :return: dict with 'server' and 'terminal' ping
@@ -137,10 +158,8 @@ class connected:
         timed = time.perf_counter()
         self._terminal_info = mt5_terminal_info()
         timed = int((time.perf_counter() - timed) * 1000)
-        res = {
-            'server'  : self.terminal_info.ping_last,
-            'terminal': timed
-        }
+        res = Ping(trade_server=self.terminal_info.ping_last,
+                   terminal=timed)
         return res
 
 

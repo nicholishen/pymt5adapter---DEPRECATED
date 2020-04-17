@@ -43,7 +43,7 @@ def test_mt5_connection_context():
     assert not state.raise_on_errors
     connected = mt5.connected(timeout=5000)
     with connected as conn:
-        #make sure the conn is setting the global state from properties
+        # make sure the conn is setting the global state from properties
         assert not state.debug_logging
         conn.debug_logging = True
         assert state.debug_logging
@@ -61,10 +61,27 @@ def test_mt5_connection_context():
         except MT5Error:
             pytest.fail("Raised MT5Error when feature was toggled off")
         ping = conn.ping()
-        print(ping['server'])
-        print(ping['terminal'])
+        print(ping.terminal)
+        print(ping.trade_server)
         # pass
 
+
+def test_return_as_dict_all(connected):
+    import pickle
+    with connected as conn:
+        conn.return_as_dict = True
+        symbol_dict = first_symbol()
+        conn.return_as_dict = False
+        symbol_tuple = first_symbol()
+    assert type(symbol_dict) is dict
+    assert isinstance(symbol_tuple, tuple)
+    # MetaTrader5 return data is not picklable
+    with pytest.raises(pickle.PicklingError):
+        x = pickle.dumps(symbol_tuple)
+    try:
+        x = pickle.dumps(symbol_dict)
+    except pickle.PicklingError:
+        pytest.fail()
 
 
 def test_terminal_version(connected):
@@ -169,7 +186,6 @@ def test_last_error_res_codes(connected):
         defined_error_codes = [getattr(mt5, name) for name in dir(mt5) if name.startswith('RES_')]
         for code in defined_error_codes:
             assert isinstance(code, int)
-
 
 
 def test_order_class(connected):
@@ -352,6 +368,7 @@ def test_raise_on_errors():
             _ = mt5.history_orders_total(',', ',')
         except mt5.MT5Error as e:
             print(e)
+
 
 # NEW STUFF
 def test_trade_class(connected):

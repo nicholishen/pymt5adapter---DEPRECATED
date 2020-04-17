@@ -34,6 +34,8 @@ def _context_manager_modified(f):
                 if error_code == _const.ERROR_CODE.INVALID_PARAMS:
                     description += str(args) + str(kwargs)
                 raise MT5Error(_const.ERROR_CODE(error_code), description)
+        if _state.return_as_dict:
+            result = _h.as_dict_all(result)
         return result
 
     return cmm_wrapped_func
