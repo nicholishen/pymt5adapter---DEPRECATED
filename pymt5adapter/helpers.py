@@ -2,7 +2,31 @@ import enum
 import functools
 from datetime import datetime
 
+from .const import MINUTES_TO_TIMEFRAME
 from .types import *
+
+
+class _MyIntFlag(enum.IntFlag):
+    @classmethod
+    def all_flags(cls):
+        flags = functools.reduce(lambda x, y: x | y, cls)
+        return flags
+
+
+def any_symbol(symbol):
+    """Pass any symbol object with a name property or string.
+
+    :param symbol: Any symbol.
+    :return: Symbol as string.
+    """
+    name = getattr(symbol, 'name', symbol)
+    return name
+
+
+def args_to_str(args: tuple, kwargs: dict):
+    ar = ', '.join(map(str, args))
+    kw = ', '.join(f"{k}={v}" for k, v in kwargs.items())
+    return ar + (', ' if ar and kw else '') + kw
 
 
 def as_dict_all(data: Any):
@@ -22,44 +46,13 @@ def as_dict_all(data: Any):
     return data
 
 
-def any_symbol(symbol):
-    """Pass any symbol object with a name property or string.
-
-    :param symbol: Any symbol.
-    :return: Symbol as string.
-    """
-    name = getattr(symbol, 'name', symbol)
-    return name
-
-
-def reduce_args(kwargs: dict) -> dict:
-    return {k: v for k, v in kwargs.items() if v is not None and k != 'kwargs'}
-
-
-def reduce_args_by_keys(d: dict, keys: Iterable) -> dict:
-    return {k: v for k, v in d.items() if k in keys and v is not None}
-
-
-def reduce_combine(d1: dict, d2: dict):
-    d1 = reduce_args(d1)
-    for k, v in d2.items():
-        if v is not None:
-            d1[k] = v
-    return d1
-
-
-def args_to_str(args: tuple, kwargs: dict):
-    ar = ', '.join(map(str, args))
-    kw = ', '.join(f"{k}={v}" for k, v in kwargs.items())
-    return ar + (', ' if ar and kw else '') + kw
-
-
-def is_rates_array(array):
-    try:
-        rate = array[0]
-        return type(rate) is tuple and len(rate) == 8
-    except:
-        return False
+def do_trade_action(func, args):
+    cleaned = reduce_args(args)
+    request = cleaned.pop('request', {})
+    symbol = cleaned.pop('symbol', None) or request.pop('symbol', None)
+    cleaned['symbol'] = any_symbol(symbol)
+    order_request = reduce_combine(request, cleaned)
+    return func(order_request)
 
 
 def get_ticket_type_stuff(func, *, symbol, group, ticket, function):
@@ -90,17 +83,32 @@ def get_history_type_stuff(func, args):
     return deals if deals is not None else tuple()
 
 
-def do_trade_action(func, args):
-    cleaned = reduce_args(args)
-    request = cleaned.pop('request', {})
-    symbol = cleaned.pop('symbol', None) or request.pop('symbol', None)
-    cleaned['symbol'] = any_symbol(symbol)
-    order_request = reduce_combine(request, cleaned)
-    return func(order_request)
+def is_rates_array(array):
+    try:
+        rate = array[0]
+        return type(rate) is tuple and len(rate) == 8
+    except:
+        return False
 
 
-class _MyIntFlag(enum.IntFlag):
-    @classmethod
-    def all_flags(cls):
-        flags = functools.reduce(lambda x, y: x | y, cls)
-        return flags
+def parse_args():
+    import sys
+    symbol = sys.argv[1]
+    timeframe = MINUTES_TO_TIMEFRAME[int(sys.argv[2])]
+    return symbol, timeframe
+
+
+def reduce_args(kwargs: dict) -> dict:
+    return {k: v for k, v in kwargs.items() if v is not None and k != 'kwargs'}
+
+
+def reduce_args_by_keys(d: dict, keys: Iterable) -> dict:
+    return {k: v for k, v in d.items() if k in keys and v is not None}
+
+
+def reduce_combine(d1: dict, d2: dict):
+    d1 = reduce_args(d1)
+    for k, v in d2.items():
+        if v is not None:
+            d1[k] = v
+    return d1

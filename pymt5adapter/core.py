@@ -727,7 +727,7 @@ def symbols_get(*,
                 regex: str = None,
                 function: Callable = None,
                 **kwargs
-                ) -> Tuple[SymbolInfo]:
+                ) -> Union[Tuple[SymbolInfo], None]:
     """Get all financial instruments from the MetaTrader 5 terminal.
         The group parameter allows sorting out symbols by name. '*' can be used at the beginning and the
         end of a string.
@@ -749,16 +749,19 @@ def symbols_get(*,
     :return: A tuple of SymbolInfo objects
     """
     symbols = mt5_symbols_get(group=group) if group else mt5_symbols_get()
-    if symbols is None and _state.raise_on_errors:
-        build = version()
-        if build and build[1] < _const.MIN_TERMINAL_BUILD:
-            raise MT5Error(_const.ERROR_CODE.TERMINAL_VERSION_OUTDATED,
-                           "The terminal build needs to be updated to support this feature.")
+    if symbols is None:
+        if _state.raise_on_errors:
+            build = version()
+            if build and build[1] < _const.MIN_TERMINAL_BUILD:
+                raise MT5Error(_const.ERROR_CODE.TERMINAL_VERSION_OUTDATED,
+                               "The terminal build needs to be updated to support this feature.")
+            else:
+                error_code, des = last_error()
+                if error_code == _const.RES_S_OK:
+                    raise MT5Error(_const.ERROR_CODE.UNKNOWN_ERROR,
+                                   "Unknown Error. Is the terminal connected?")
         else:
-            error_code, des = last_error()
-            if error_code == _const.RES_S_OK:
-                raise MT5Error(_const.ERROR_CODE.UNKNOWN_ERROR,
-                               "Unknown Error. Is the terminal connected?")
+            return None
     if regex:
         if isinstance(regex, str):
             regex = re.compile(regex)

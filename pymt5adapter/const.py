@@ -1,4 +1,5 @@
 import enum
+
 from .helpers import _MyIntFlag
 
 MIN_TERMINAL_BUILD = 2375
@@ -56,6 +57,29 @@ class TIMEFRAME(enum.IntEnum):
     W1 = 1 | 0x8000
     MN1 = 1 | 0xC000
 
+
+MINUTES_TO_TIMEFRAME = {
+    1            : TIMEFRAME.M1,
+    2            : TIMEFRAME.M2,
+    3            : TIMEFRAME.M3,
+    4            : TIMEFRAME.M4,
+    5            : TIMEFRAME.M5,
+    6            : TIMEFRAME.M6,
+    10           : TIMEFRAME.M10,
+    12           : TIMEFRAME.M12,
+    15           : TIMEFRAME.M15,
+    20           : TIMEFRAME.M20,
+    30           : TIMEFRAME.M30,
+    (1 * 60)     : TIMEFRAME.H1,
+    (2 * 60)     : TIMEFRAME.H2,
+    (3 * 60)     : TIMEFRAME.H3,
+    (6 * 60)     : TIMEFRAME.H6,
+    (8 * 60)     : TIMEFRAME.H8,
+    (12 * 60)    : TIMEFRAME.H12,
+    (24 * 60)    : TIMEFRAME.D1,
+    (7 * 24 * 60): TIMEFRAME.W1,
+    43200        : TIMEFRAME.MN1,
+}
 
 # tick copy flags
 COPY_TICKS_ALL = -1

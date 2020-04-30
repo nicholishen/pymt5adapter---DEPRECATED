@@ -9,6 +9,8 @@ from .context import pymt5adapter as mt5
 from pymt5adapter.state import global_state as state
 from pymt5adapter import MT5Error
 
+from pymt5adapter.const import *
+
 
 # PYTEST SETUP
 @pytest.fixture
@@ -271,6 +273,7 @@ def test_symbol_info(connected):
 def test_symbol_info_tick(connected):
     with connected:
         info = mt5.symbol_info_tick("EURUSD")
+        print(type(info))
         assert isinstance(info, mt5.Tick)
 
 
