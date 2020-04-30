@@ -44,6 +44,19 @@ def _context_manager_modified(f):
 mt5_account_info = _mt5.account_info
 
 
+def parse_args():
+    import sys
+    try:
+        symbol = sys.argv[1]
+        timeframe = _const.MINUTES_TO_TIMEFRAME[int(sys.argv[2])]
+        return symbol, timeframe
+    except Exception:
+        if _state.raise_on_errors:
+            raise MT5Error(_const.ERROR_CODE.INVALID_COMMANDLINE_ARGS, f"Invalid command line args {sys.argv}")
+        else:
+            return None
+
+
 @_context_manager_modified
 def account_info() -> AccountInfo:
     """Get info on the current trading account. The function returns all data that can be obtained using

@@ -637,6 +637,7 @@ RES_E_INTERNAL_FAIL_TIMEOUT = -10005  # internal timeout
 RES_X_REAL_ACCOUNT_DISABLED = -200_001  # REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER
 RES_X_TERMINAL_VERSION_OUTDATED = -200_002  # terminal version is out of date and does not support the current feature.
 RES_X_UNKNOWN_ERROR = -200_003
+RES_X_INVALID_COMMANDLINE_ARGS = -200_004
 
 
 class ERROR_CODE(enum.IntEnum):
@@ -660,7 +661,7 @@ class ERROR_CODE(enum.IntEnum):
     REAL_ACCOUNT_DISABLED = -200_001  # REAL ACCOUNT TRADING HAS NOT BEEN ENABLED IN THE CONTEXT MANAGER
     TERMINAL_VERSION_OUTDATED = -200_002  # terminal version is out of date and does not support the current feature.
     UNKNOWN_ERROR = -200_003
-
+    INVALID_COMMANDLINE_ARGS = -200_004
 
 MQL_TRADE_REQUEST_PROPS = dict(
     action=int,

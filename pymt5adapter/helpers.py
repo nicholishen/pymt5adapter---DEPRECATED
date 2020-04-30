@@ -2,7 +2,6 @@ import enum
 import functools
 from datetime import datetime
 
-from .const import MINUTES_TO_TIMEFRAME
 from .types import *
 
 
@@ -89,13 +88,6 @@ def is_rates_array(array):
         return type(rate) is tuple and len(rate) == 8
     except:
         return False
-
-
-def parse_args():
-    import sys
-    symbol = sys.argv[1]
-    timeframe = MINUTES_TO_TIMEFRAME[int(sys.argv[2])]
-    return symbol, timeframe
 
 
 def reduce_args(kwargs: dict) -> dict:
