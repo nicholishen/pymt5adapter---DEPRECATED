@@ -1,6 +1,12 @@
 import enum
+import functools
 
-from .helpers import _MyIntFlag
+class _MyIntFlag(enum.IntFlag):
+    @classmethod
+    def all_flags(cls):
+        flags = functools.reduce(lambda x, y: x | y, cls)
+        return flags
+
 
 MIN_TERMINAL_BUILD = 2375
 MAX_BARS = 3000
@@ -662,6 +668,7 @@ class ERROR_CODE(enum.IntEnum):
     TERMINAL_VERSION_OUTDATED = -200_002  # terminal version is out of date and does not support the current feature.
     UNKNOWN_ERROR = -200_003
     INVALID_COMMANDLINE_ARGS = -200_004
+
 
 MQL_TRADE_REQUEST_PROPS = dict(
     action=int,

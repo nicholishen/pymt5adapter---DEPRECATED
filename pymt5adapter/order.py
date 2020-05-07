@@ -2,9 +2,12 @@ import copy
 
 from . import const
 from .const import MQL_TRADE_REQUEST_PROPS
+from .context import _ContextAwareBase
 from .core import order_check
-from .core import order_send, symbol_info_tick
-from .helpers import reduce_combine, any_symbol
+from .core import order_send
+from .core import symbol_info_tick
+from .helpers import any_symbol
+from .helpers import reduce_combine
 from .types import *
 
 
@@ -22,7 +25,7 @@ def create_order_request(request: dict = None, *, action: int = None, magic: int
     return Order(**locals().copy()).request()
 
 
-class Order:
+class Order(_ContextAwareBase):
     __slots__ = MQL_TRADE_REQUEST_PROPS.keys()
 
     @classmethod
@@ -62,16 +65,38 @@ class Order:
         return res
 
     @classmethod
-    def as_adjusted_net_position(cls, position:TradePosition, new_net_position:float, **kwargs):
+    def as_adjusted_net_position(cls, position: TradePosition, new_net_position: float, **kwargs):
         volume = position.volume
         volume = -volume if position.type else volume
         new_volume = new_net_position - volume
-        order = cls.as_sell(**kwargs) if new_volume < 0.0 else cls.as_buy(**kwargs)
-        order.volume = abs(new_volume)
-        order.symbol = position.symbol
+        order_obj = cls.as_sell(**kwargs) if new_volume < 0.0 else cls.as_buy(**kwargs)
+        order_obj.volume = abs(new_volume)
+        order_obj.symbol = position.symbol
+        order_obj.magic = position.magic
+        order_obj.sl = position.sl
+        order_obj.tp = position.tp
+        return order_obj
 
+    @classmethod
+    def as_modify_sltp(cls, position: Union[TradePosition, int], sl=None, tp=None):
+        order = cls(
+            action=const.TRADE_ACTION.SLTP,
+            position=getattr(position, 'ticket', position),
+            sl=sl or 0.0,
+            tp=tp or 0.0,
+        )
+        if isinstance(position, TradePosition):
+            order.symbol = position.symbol
+        return order
 
-
+    @classmethod
+    def as_delete_pending(cls, order: Union[TradeOrder, int]):
+        order_ticket = getattr(order, 'ticket', order)
+        order_obj = cls(
+            action=const.TRADE_ACTION.REMOVE,
+            order=order_ticket,
+        )
+        return order_obj
 
     def __init__(self,
                  request: dict = None, *, action: int = None, magic: int = None,
@@ -81,6 +106,7 @@ class Order:
                  expiration: int = None, comment: str = None, position: int = None, position_by: int = None,
                  **kwargs
                  ):
+        super().__init__()
         args = locals().copy()
         del args['self']
         self.action = self.magic = self.order = self.symbol = self.volume = self.price = None

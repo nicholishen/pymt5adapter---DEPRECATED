@@ -1,15 +1,6 @@
-import enum
-import functools
 from datetime import datetime
 
 from .types import *
-
-
-class _MyIntFlag(enum.IntFlag):
-    @classmethod
-    def all_flags(cls):
-        flags = functools.reduce(lambda x, y: x | y, cls)
-        return flags
 
 
 def any_symbol(symbol):
@@ -61,8 +52,13 @@ def get_ticket_type_stuff(func, *, symbol, group, ticket, function):
     # if magic:
     #     items = filter(lambda p: p.magic == magic, items)
     if function:
-        items = filter(function, items)
-    return tuple(items) if items is not None else tuple()
+        items = tuple(filter(function, items))
+
+    if items is None:
+        items = ()
+    elif type(items) is not tuple:
+        items = (items,)
+    return items
 
 
 def get_history_type_stuff(func, args):
@@ -79,7 +75,12 @@ def get_history_type_stuff(func, args):
         deals = func(**args)
     if function:
         deals = tuple(filter(function, deals))
-    return deals if deals is not None else tuple()
+
+    if deals is None:
+        deals = ()
+    elif type(deals) is not tuple:
+        deals = (deals,)
+    return deals
 
 
 def is_rates_array(array):

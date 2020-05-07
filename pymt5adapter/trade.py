@@ -1,19 +1,20 @@
-from .const import *
-from .core import order_send
-from .core import symbol_info
-from .core import symbol_info_tick
-from .types import *
+from . import const
+from .context import _ContextAwareBase
+from .core import positions_get
 from .order import Order
 from .symbol import Symbol
+from .types import *
 
 
-class Trade:
+class Trade(_ContextAwareBase):
 
     def __init__(self, symbol: Union[str, SymbolInfo], magic=0):
+        super().__init__()
         self._symbol = None
         self.symbol = symbol
         self.magic = magic
-        self._order = Order(symbol=self.symbol, magic=self.magic)
+        # self._order = Order(symbol=self.symbol, magic=self.magic)
+        self._position = None
 
     @property
     def symbol(self) -> Union[Symbol, None]:
@@ -27,27 +28,54 @@ class Trade:
             raise TypeError('Wrong assignment type. Must be str, Symbol, or SymbolInfo')
         self._symbol = s
 
-    def _get_order(self, obj: Order) -> Order:
-        return obj(symbol=self.symbol, magic=self.magic)
+    @property
+    def position(self) -> TradePosition:
+        if self._position is None:
+            self.refresh()
+        return self._position
 
-    # def _market_order(self, order, volume, comment=None):
-    #     self._order = self._get_order(order)
-    #     tick = self.symbol.refresh_rates().tick
-    #     price = tick.ask if type == ORDER_TYPE_BUY else tick.bid
-    #     self._order(volume=volume, price=price, comment=comment)
-    #     result = self._order.send()
-    #     return result
+    def refresh(self):
+        p = positions_get(symbol=self.symbol.name, function=lambda p: p.magic == self.magic)
+        self._position = p[0] if p else None
+        return self
 
-    def buy(self, volume: float, comment: str = None) -> OrderSendResult:
+    def _do_market(self, order_constructor, volume: float, comment: str = None, **kwargs) -> OrderSendResult:
         price = self.symbol.refresh_rates().tick.ask
-        self._order = self._get_order(Order.as_buy)(
-            price=price, volume=volume, comment=comment)
-        result = self._order.send()
+        order = order_constructor(
+            symbol=self.symbol,
+            magic=self.magic,
+            price=price,
+            volume=volume,
+            comment=comment,
+            **kwargs
+        )
+        result = order.send()
         return result
 
-    def sell(self, volume: float, comment: str = None) -> OrderSendResult:
-        price = self.symbol.refresh_rates().tick.bid
-        self._order = self._get_order(Order.as_sell)(
-            price=price, volume=volume, comment=comment)
-        result = self._order.send()
+    def buy(self, volume: float, comment: str = None, **kwargs) -> OrderSendResult:
+        return self._do_market(Order.as_buy, volume, comment, **kwargs)
+
+    def sell(self, volume: float, comment: str = None, **kwargs) -> OrderSendResult:
+        return self._do_market(Order.as_sell, volume, comment, **kwargs)
+
+    def sltp_price(self, sl: int = None, tp: int = None, **kwargs):
+        p = kwargs.get('position') or self.refresh().position
+        order = Order.as_modify_sltp(p, sl=sl, tp=tp)
+        result = order.send()
+        return result
+
+    def sltp_ticks(self, sl: int = None, tp: int = None, **kwargs):
+        sl, tp = abs(sl), abs(tp)
+        position = self.refresh().position
+        tick_size = self.symbol.trade_tick_size
+        tick = self.symbol.refresh_rates().tick
+        if position.type == const.POSITION_TYPE.BUY:
+            price = tick.bid
+            sl = -sl
+        else:
+            price = tick.ask
+            tp = -tp
+        stop = price + sl * tick_size
+        take = price + tp * tick_size
+        result = self.sltp_price(sl=stop, tp=take, position=position, **kwargs)
         return result

@@ -12,7 +12,7 @@ from typing import Union
 
 import requests
 
-from .helpers import _MyIntFlag
+from .const import _MyIntFlag
 
 __all__ = ['calendar_events', 'Importance', 'Currency']
 

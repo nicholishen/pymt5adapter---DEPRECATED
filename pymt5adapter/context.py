@@ -2,6 +2,7 @@ import contextlib
 import signal
 import sys
 import time
+from dataclasses import dataclass
 
 from . import const
 from .core import mt5_account_info
@@ -14,7 +15,16 @@ from .helpers import reduce_args
 from .state import global_state as _state
 from .types import *
 
-from dataclasses import dataclass
+
+class _ContextAwareBase:
+    __state = _state
+
+    def __new__(cls, *args, **kwargs):
+        if cls.__state.return_as_dict:
+            raise MT5Error(
+                const.ERROR_CODE.UNSUPPORTED,
+                f"Cannot use {cls.__name__} class when API state set to return all as dict.")
+        return super().__new__(cls)
 
 
 @dataclass
@@ -145,10 +155,9 @@ class connected:
         return self._return_as_dict
 
     @return_as_dict.setter
-    def return_as_dict(self, flag:bool):
+    def return_as_dict(self, flag: bool):
         _state.return_as_dict = flag
         self._return_as_dict = flag
-
 
     def ping(self) -> Ping:
         """Get ping in microseconds for the terminal and server.

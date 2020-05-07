@@ -12,8 +12,23 @@ from .types import *
 
 
 class MT5Error(Exception):
+    """The exception class for all MetaTrader5 Errors.
+
+    Example:
+        >>> try:
+        >>>     raise MT5Error(_const.ERROR_CODE.UNSUPPORTED, "This feature is unsupported.")
+        >>> except MT5Error as e:
+        >>>     print(e.error_code, e.description)
+
+
+    """
     def __init__(self, error_code: _const.ERROR_CODE, description: str):
-        super().__init__()
+        """
+
+        :param error_code: int error code returned my last_error()
+        :param description: error description
+        """
+        super().__init__(f"{error_code.name}: {description}")
         self.error_code = error_code
         self.description = description
 
@@ -48,7 +63,10 @@ def parse_args():
     import sys
     try:
         symbol = sys.argv[1]
-        timeframe = _const.MINUTES_TO_TIMEFRAME[int(sys.argv[2])]
+        arg2 = sys.argv[2]
+        timeframe = _const.MINUTES_TO_TIMEFRAME.get(int(arg2))
+        if timeframe is None:
+            timeframe = _const.TIMEFRAME(arg2)
         return symbol, timeframe
     except Exception:
         if _state.raise_on_errors:

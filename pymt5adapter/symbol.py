@@ -1,4 +1,5 @@
 from . import const
+from .context import _ContextAwareBase
 from .core import copy_rates_from_pos
 from .core import symbol_info
 from .core import symbol_info_tick
@@ -7,8 +8,9 @@ from .types import SymbolInfo
 from .types import Union
 
 
-class Symbol:
+class Symbol(_ContextAwareBase):
     def __init__(self, symbol: Union[str, SymbolInfo]):
+        super().__init__()
         self.name = symbol
 
     @property
