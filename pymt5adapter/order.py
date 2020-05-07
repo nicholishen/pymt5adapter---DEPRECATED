@@ -78,15 +78,18 @@ class Order(_ContextAwareBase):
         return order_obj
 
     @classmethod
-    def as_modify_sltp(cls, position: Union[TradePosition, int], sl=None, tp=None):
+    def as_modify_sltp(cls, position: Union[TradePosition, int], sl=None, tp=None, **kwargs):
         order = cls(
             action=const.TRADE_ACTION.SLTP,
             position=getattr(position, 'ticket', position),
-            sl=sl or 0.0,
-            tp=tp or 0.0,
+            sl=sl,
+            tp=tp,
+            **kwargs
         )
         if isinstance(position, TradePosition):
             order.symbol = position.symbol
+            order.sl = sl or position.sl
+            order.tp = tp or position.tp
         return order
 
     @classmethod
