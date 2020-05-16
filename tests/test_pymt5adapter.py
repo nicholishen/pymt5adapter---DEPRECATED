@@ -122,11 +122,15 @@ def test_consistency_for_empty_data_returns(connected):
 
 
 def test_copy_rates(connected):
-    with connected:
-        maxbars = mt5.terminal_info().maxbars
-        s = first_symbol().name
-        rates = mt5.copy_rates(s, mt5.TIMEFRAME_M1, count=maxbars)
-        assert len(rates) > 0
+    with connected as conn:
+        rstate = conn.raise_on_errors
+        conn.raise_on_errors = True
+        try:
+            s = first_symbol().name
+            rates = mt5.copy_rates(s, mt5.TIMEFRAME_M1, count=10_000)
+            assert len(rates) > 0
+        finally:
+            conn.raise_on_errors = rstate
 
 
 def test_copy_ticks_range(connected):

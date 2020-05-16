@@ -1,6 +1,7 @@
 import enum
 import functools
 
+
 class _MyIntFlag(enum.IntFlag):
     @classmethod
     def all_flags(cls):

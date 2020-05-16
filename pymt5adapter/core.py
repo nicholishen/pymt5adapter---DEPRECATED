@@ -29,8 +29,8 @@ class MT5Error(Exception):
         :param description: error description
         """
         super().__init__(f"{error_code.name}: {description}")
-        self.error_code = error_code
-        self.description = description
+        self.errno = self.error_code = error_code
+        self.strerror = self.description = description
 
 
 def _context_manager_modified(f):
@@ -43,12 +43,17 @@ def _context_manager_modified(f):
             call_sig = f"{f.__name__}({_h.args_to_str(args, kwargs)})"
             _state.logger(f"[{call_sig}][{last_err}]")
         # make sure we logger before we raise
-        if _state.raise_on_errors and not result:  # no need to check last error if we got a result
-            error_code, description = last_err or mt5_last_error()
-            if error_code != _const.ERROR_CODE.OK:
-                if error_code == _const.ERROR_CODE.INVALID_PARAMS:
-                    description += str(args) + str(kwargs)
-                raise MT5Error(_const.ERROR_CODE(error_code), description)
+        if _state.raise_on_errors:  # no need to check last error if we got a result
+            if isinstance(result, numpy.ndarray):
+                is_result = True if len(result) > 0 else False
+            else:
+                is_result = bool(result)
+            if not is_result:
+                error_code, description = last_err or mt5_last_error()
+                if error_code != _const.ERROR_CODE.OK:
+                    if error_code == _const.ERROR_CODE.INVALID_PARAMS:
+                        description += str(args) + str(kwargs)
+                    raise MT5Error(_const.ERROR_CODE(error_code), description)
         if _state.return_as_dict:
             result = _h.as_dict_all(result)
         return result

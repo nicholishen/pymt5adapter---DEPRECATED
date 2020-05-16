@@ -3,6 +3,7 @@ import signal
 import sys
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 from . import const
 from .core import mt5_account_info
@@ -69,6 +70,18 @@ class connected:
         Note:
            The param ``enable_real_trading`` must be set to True to work on live accounts.
         """
+        # DATA VALIDATION
+        if path:
+            try:
+                path = Path(path)
+                if not path.exists() or 'terminal64' not in str(path):
+                    raise Exception
+                path = str(path.absolute())
+            except Exception:
+                raise MT5Error(const.ERROR_CODE.INVALID_PARAMS, "Invalid path to terminal.")
+        if password:
+            password = str(password)
+
         self._init_kwargs = reduce_args(dict(
             path=path, portable=portable, server=server,
             login=login, password=password, timeout=timeout,
@@ -89,7 +102,9 @@ class connected:
         _state.return_as_dict = self.return_as_dict
         try:
             if not mt5_initialize(**self._init_kwargs):
-                raise MT5Error(*mt5_last_error())
+                err_code, err_description = mt5_last_error()
+                err_code = const.ERROR_CODE(err_code)
+                raise MT5Error(err_code, err_description)
 
             if self.debug_logging:
                 self.logger("MT5 connection has been initialized.")
