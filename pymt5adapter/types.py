@@ -6,6 +6,7 @@ from typing import Iterable
 from typing import Tuple
 from typing import Union
 from typing import Any
+from typing import Optional
 
 # custom namedtuples
 CopyRate = namedtuple("CopyRate", "time, open, high, low, close, tick_volume, spread, real_volume")

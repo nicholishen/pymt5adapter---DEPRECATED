@@ -64,7 +64,9 @@ def _context_manager_modified(f):
 mt5_account_info = _mt5.account_info
 
 
-def parse_args(*defaults):
+def parse_args(default_symbol:str=None,
+               default_timeframe:Union[int, _const.TIMEFRAME]=None,
+               ) -> Optional[Tuple[str, _const.TIMEFRAME]]:
     import sys
     try:
         symbol = sys.argv[1]
@@ -74,8 +76,8 @@ def parse_args(*defaults):
             timeframe = _const.TIMEFRAME(arg2)
         return symbol, timeframe
     except Exception:
-        if defaults and len(defaults) == 2:
-            return defaults
+        if default_symbol and default_timeframe:
+            return default_symbol, _const.TIMEFRAME(default_timeframe)
         if _state.raise_on_errors:
             raise MT5Error(_const.ERROR_CODE.INVALID_COMMANDLINE_ARGS, f"Invalid command line args {sys.argv}")
         else:
