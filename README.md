@@ -166,32 +166,5 @@ def out_deal(deal: mt5.TradeDeal):
 out_deals = mt5.history_deals_get(function=out_deal)
 ```
 
-### Calendar Events
-Get economic calendar events from mql5.com using the `calendar_events` function. The function is memoized so
-repeated calls pulls event data from cache instead of repeated calls to the server. 
-
-Example:
-```python
-from pymt5adapter.calendar import calendar_events
-from pymt5adapter.calendar import Currency
-from pymt5adapter.calendar import Importance
-
-symbol = mt5.symbols_get(function=forex_symbol)[0]
-one_week = timedelta(weeks=1)
-now = datetime.now()
-default_one_week_ahead_all_events = calendar_events()
-filtered_by_callback = calendar_events(function=lambda e: 'fed' in e['event_name'].lower())
-filtered_by_flags = calendar_events(importance=Importance.MEDIUM | Importance.HIGH,
-                                    currencies=Currency.USD | Currency.JPY)
-filtered_by_strings = calendar_events(importance='medium high',
-                                      currencies='usdjpy')
-filtered_by_iterables = calendar_events(importance=('medium', ' high'),
-                                        currencies=('usd', 'jpy'))
-filtered_by_specific_times = calendar_events(time_from=now, time_to=now + one_week)
-filtered_by_timedeltas = calendar_events(time_from=(-one_week), time_to=one_week)
-filtered_by_timedelta_lookback = calendar_events(-one_week)
-calendar_events_in_russian = calendar_events(language='ru')
-```
-
 [intellisence_screen]: https://github.com/nicholishen/pymt5adapter/raw/master/images/intellisense_screen.jpg "intellisence example"
 [docs_screen]: https://github.com/nicholishen/pymt5adapter/raw/master/images/docs_screen.jpg "quick docs example"
