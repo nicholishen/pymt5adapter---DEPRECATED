@@ -22,6 +22,7 @@ class MT5Error(Exception):
 
 
     """
+
     def __init__(self, error_code: _const.ERROR_CODE, description: str):
         """
 
@@ -33,39 +34,49 @@ class MT5Error(Exception):
         self.strerror = self.description = description
 
 
-def _context_manager_modified(f):
-    @functools.wraps(f)
-    def cmm_wrapped_func(*args, **kwargs):
-        result = f(*args, **kwargs)
-        last_err = None
-        if _state.debug_logging:
-            last_err = mt5_last_error()
-            call_sig = f"{f.__name__}({_h.args_to_str(args, kwargs)})"
-            _state.logger(f"[{call_sig}][{last_err}]")
-        # make sure we logger before we raise
-        if _state.raise_on_errors:  # no need to check last error if we got a result
-            if isinstance(result, numpy.ndarray):
-                is_result = True if len(result) > 0 else False
-            else:
-                is_result = bool(result)
-            if not is_result:
-                error_code, description = last_err or mt5_last_error()
-                if error_code != _const.ERROR_CODE.OK:
-                    if error_code == _const.ERROR_CODE.INVALID_PARAMS:
-                        description += str(args) + str(kwargs)
-                    raise MT5Error(_const.ERROR_CODE(error_code), description)
-        if _state.return_as_dict:
-            result = _h.as_dict_all(result)
-        return result
+def _context_manager_modified(participation, advanced_features=True):
+    def decorator(f):
+        f.__dispatch = True
 
-    return cmm_wrapped_func
+        @functools.wraps(f)
+        def cmm_wrapped_func(*args, **kwargs):
+            result = f(*args, **kwargs)
+            if not participation:
+                return result
+            last_err = None
+            if advanced_features and _state.debug_logging:
+                last_err = mt5_last_error()
+                call_sig = f"{f.__name__}({_h.args_to_str(args, kwargs)})"
+                _state.logger(f"[{call_sig}][{last_err}]")
+            # make sure we logger before we raise
+            if advanced_features and _state.raise_on_errors:  # no need to check last error if we got a result
+                if isinstance(result, numpy.ndarray):
+                    is_result = True if len(result) > 0 else False
+                else:
+                    is_result = bool(result)
+                if not is_result:
+                    error_code, description = last_err or mt5_last_error()
+                    if error_code != _const.ERROR_CODE.OK:
+                        if error_code == _const.ERROR_CODE.INVALID_PARAMS:
+                            description += str(args) + str(kwargs)
+                        raise MT5Error(_const.ERROR_CODE(error_code), description)
+            if _state.native_python_objects:
+                result = _h.make_native(result)
+            elif _state.return_as_dict:
+                result = _h.dictify(result)
+            return result
+
+        return cmm_wrapped_func
+
+    return decorator
 
 
 mt5_account_info = _mt5.account_info
 
 
-def parse_args(default_symbol:str=None,
-               default_timeframe:Union[int, _const.TIMEFRAME]=None,
+@_context_manager_modified(participation=False)
+def parse_args(default_symbol: str = None,
+               default_timeframe: Union[int, _const.TIMEFRAME] = None,
                ) -> Optional[Tuple[str, _const.TIMEFRAME]]:
     import sys
     try:
@@ -84,7 +95,7 @@ def parse_args(default_symbol:str=None,
             return None
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def account_info() -> AccountInfo:
     """Get info on the current trading account. The function returns all data that can be obtained using
     AccountInfoInteger, AccountInfoDouble and AccountInfoString in one call.
@@ -95,7 +106,7 @@ def account_info() -> AccountInfo:
     return mt5_account_info()
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def copy_rates(symbol,
                timeframe: int,
                *,
@@ -139,7 +150,7 @@ def copy_rates(symbol,
 mt5_copy_rates_from = _mt5.copy_rates_from
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def copy_rates_from(symbol,
                     timeframe: int,
                     datetime_from: Union[datetime, int],
@@ -166,7 +177,7 @@ def copy_rates_from(symbol,
 mt5_copy_rates_from_pos = _mt5.copy_rates_from_pos
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def copy_rates_from_pos(symbol,
                         timeframe: int,
                         start_pos: int,
@@ -193,7 +204,7 @@ def copy_rates_from_pos(symbol,
 mt5_copy_rates_range = _mt5.copy_rates_range
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def copy_rates_range(symbol,
                      timeframe: int,
                      datetime_from: Union[datetime, int],
@@ -221,7 +232,7 @@ def copy_rates_range(symbol,
 mt5_copy_ticks_from = _mt5.copy_ticks_from
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def copy_ticks_from(symbol,
                     datetime_from: Union[datetime, int],
                     count: int,
@@ -257,7 +268,7 @@ def copy_ticks_from(symbol,
 mt5_copy_ticks_range = _mt5.copy_ticks_range
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def copy_ticks_range(symbol,
                      datetime_from: Union[datetime, int],
                      datetime_to: Union[datetime, int],
@@ -294,7 +305,7 @@ def copy_ticks_range(symbol,
 mt5_history_deals_get = _mt5.history_deals_get
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def history_deals_get(datetime_from: datetime = None,
                       datetime_to: datetime = None,
                       *,
@@ -327,7 +338,7 @@ def history_deals_get(datetime_from: datetime = None,
 mt5_history_deals_total = _mt5.history_deals_total
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def history_deals_total(datetime_from: datetime, datetime_to: datetime, **kwargs) -> int:
     """Get the number of ``deals`` in trading history within the specified interval.
 
@@ -344,7 +355,7 @@ def history_deals_total(datetime_from: datetime, datetime_to: datetime, **kwargs
 mt5_history_orders_get = _mt5.history_orders_get
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def history_orders_get(datetime_from: datetime = None,
                        datetime_to: datetime = None,
                        *,
@@ -376,7 +387,7 @@ def history_orders_get(datetime_from: datetime = None,
 mt5_history_orders_total = _mt5.history_orders_total
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def history_orders_total(datetime_from: datetime, datetime_to: datetime, **kwargs) -> int:
     """Get the number of orders in trading history within the specified interval.
 
@@ -393,7 +404,7 @@ def history_orders_total(datetime_from: datetime, datetime_to: datetime, **kwarg
 mt5_initialize = _mt5.initialize
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def initialize(path: str = None,
                *,
                login: str = None,
@@ -429,6 +440,7 @@ def initialize(path: str = None,
 mt5_last_error = _mt5.last_error
 
 
+@_context_manager_modified(participation=True, advanced_features=False)
 def last_error() -> Tuple[int, str]:
     """last_error() allows obtaining an error code in case of a failed execution of a MetaTrader 5 library function.
     It is similar to GetLastError(). However, it applies its own error codes.
@@ -441,7 +453,7 @@ def last_error() -> Tuple[int, str]:
 mt5_login = _mt5.login
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def login(login: int, *,
           password: str = None,
           server: str = None,
@@ -466,7 +478,7 @@ def login(login: int, *,
 mt5_order_calc_margin = _mt5.order_calc_margin
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def order_calc_margin(order_type: int,
                       symbol,
                       volume: float,
@@ -487,7 +499,7 @@ def order_calc_margin(order_type: int,
 mt5_order_calc_profit = _mt5.order_calc_profit
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def order_calc_profit(order_type: int,
                       symbol,
                       volume: float,
@@ -510,7 +522,7 @@ def order_calc_profit(order_type: int,
 mt5_order_check = _mt5.order_check
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def order_check(request: dict = None,
                 *,
                 action: int = None, magic: int = None, order: int = None,
@@ -553,7 +565,7 @@ def order_check(request: dict = None,
 mt5_order_send = _mt5.order_send
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def order_send(request: dict = None,
                *,
                action: int = None, magic: int = None, order: int = None,
@@ -597,7 +609,7 @@ def order_send(request: dict = None,
 mt5_orders_get = _mt5.orders_get
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def orders_get(symbol=None,
                *,
                group: str = None,
@@ -637,7 +649,7 @@ def orders_get(symbol=None,
 mt5_orders_total = _mt5.orders_total
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def orders_total() -> int:
     """Get the number of active orders.
 
@@ -646,6 +658,7 @@ def orders_total() -> int:
     return mt5_orders_total()
 
 
+@_context_manager_modified(participation=True, advanced_features=False)
 def period_seconds(timeframe):
     """Get the number of seconds for the respective timeframe
 
@@ -658,7 +671,7 @@ def period_seconds(timeframe):
 mt5_positions_get = _mt5.positions_get
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def positions_get(symbol=None,
                   *,
                   group: str = None,
@@ -687,7 +700,7 @@ def positions_get(symbol=None,
 mt5_positions_total = _mt5.positions_total
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def positions_total() -> int:
     """Get the number of open positions.
 
@@ -699,7 +712,7 @@ def positions_total() -> int:
 mt5_shutdown = _mt5.shutdown
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def shutdown() -> None:
     """Close the previously established connection to the MetaTrader 5 terminal.
 
@@ -711,7 +724,7 @@ def shutdown() -> None:
 mt5_symbol_info = _mt5.symbol_info
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def symbol_info(symbol) -> SymbolInfo:
     """Get data on the specified financial instrument.
 
@@ -726,7 +739,7 @@ def symbol_info(symbol) -> SymbolInfo:
 mt5_symbol_info_tick = _mt5.symbol_info_tick
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def symbol_info_tick(symbol) -> Tick:
     """Get the last tick for the specified financial instrument.
 
@@ -746,7 +759,7 @@ def symbol_info_tick(symbol) -> Tick:
 mt5_symbol_select = _mt5.symbol_select
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def symbol_select(symbol, enable: bool = True) -> bool:
     """Select a symbol in the MarketWatch window or remove a symbol from the window.
 
@@ -761,7 +774,7 @@ def symbol_select(symbol, enable: bool = True) -> bool:
 mt5_symbols_get = _mt5.symbols_get
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def symbols_get(*,
                 group: str = None,
                 regex: str = None,
@@ -814,7 +827,7 @@ def symbols_get(*,
 mt5_symbols_total = _mt5.symbols_total
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def symbols_total() -> int:
     """Get the number of all financial instruments in the MetaTrader 5 terminal. The function is similar to
     SymbolsTotal(). However, it returns the number of all symbols including custom ones and the ones disabled
@@ -828,7 +841,7 @@ def symbols_total() -> int:
 mt5_terminal_info = _mt5.terminal_info
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def terminal_info() -> TerminalInfo:
     """Get the connected MetaTrader 5 client terminal status and settings. The function returns all data that can be
     obtained using TerminalInfoInteger, TerminalInfoDouble and TerminalInfoDouble in one call.
@@ -839,6 +852,7 @@ def terminal_info() -> TerminalInfo:
     return mt5_terminal_info()
 
 
+@_context_manager_modified(participation=True, advanced_features=False)
 def trade_retcode_description(retcode):
     try:
         return _const.TRADE_RETCODE(int(retcode)).name
@@ -849,7 +863,7 @@ def trade_retcode_description(retcode):
 mt5_version = _mt5.version
 
 
-@_context_manager_modified
+@_context_manager_modified(participation=True)
 def version() -> Tuple[int, int, str]:
     """Return the MetaTrader 5 terminal version.
 
@@ -857,3 +871,9 @@ def version() -> Tuple[int, int, str]:
     The info on the error can be obtained using last_error().
     """
     return mt5_version()
+
+
+@_context_manager_modified(participation=False, advanced_features=False)
+def get_function_dispatch():
+    dispatch = {n: f for n, f in globals().items() if hasattr(f, '__dispatch')}
+    return dispatch
