@@ -68,6 +68,19 @@ def test_mt5_connection_context():
         # pass
 
 
+def test_make_native():
+    import json
+    with mt5.connected(native_python_objects=True) as conn:
+        rates = mt5.copy_rates_from_pos("EURUSD", mt5.TIMEFRAME_M1, 0, 1)
+        account = mt5.account_info()
+        x = dict(rates=rates, account=account)
+        try:
+            j = json.dumps(x)
+        except Exception:
+            pytest.fail()
+
+
+
 def test_return_as_dict_all(connected):
     import pickle
     with connected as conn:
@@ -315,7 +328,7 @@ def test_terminal_info(connected):
 
 # HELPERS
 def test_as_dict_all(connected):
-    from pymt5adapter import as_dict_all
+    from pymt5adapter import dictify
     from typing import Iterable
     # from time import perf_counter_ns
 
@@ -334,12 +347,12 @@ def test_as_dict_all(connected):
 
     with connected:
         deals = mt5.history_deals_get()[:3]
-        mutated_deals = as_dict_all(deals)
+        mutated_deals = dictify(deals)
         assert len(deals) == len(mutated_deals)
         assert all(isinstance(d, dict) for d in mutated_deals)
         symbols = mt5.symbols_get()
         # b = perf_counter_ns()
-        symbols = as_dict_all(symbols)
+        symbols = dictify(symbols)
         # total = perf_counter_ns() - b
         assert no_namedtuples(symbols)
         # print(f"as_dict_all_time = {total / 1000}")

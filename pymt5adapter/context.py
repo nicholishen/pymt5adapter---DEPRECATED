@@ -48,6 +48,7 @@ class connected:
                  debug_logging: bool = None,
                  logger: Callable = None,
                  return_as_dict: bool = None,
+                 native_python_objects: bool = None,
                  **kwargs
                  ):
         """Context manager for managing the connection with a MT5 terminal using the python ``with`` statement.
@@ -63,6 +64,8 @@ class connected:
         :param raise_on_errors: Automatically checks last_error() after each function call and will raise a Mt5Error when the error-code is not RES_S_OK
         :param debug_logging: Logs each function call.
         :param logger: Logging function. Will pass connection status messages to this function.
+        :param return_as_dict: Converts all namedtuple to dictionaries.
+        :param native_python_objects: Converts all returns to JSON. Namedtuples become JSON objects and numpy arrays become JSON arrays.
 
         :param kwargs:
         :return: None
@@ -94,12 +97,14 @@ class connected:
         self._debug_logging = debug_logging
         self._terminal_info = None
         self._return_as_dict = return_as_dict
+        self._native_python_objects = native_python_objects
 
     def __enter__(self):
         self._state_on_enter = _state.get_state()
         _state.raise_on_errors = self.raise_on_errors
         _state.debug_logging = self.debug_logging
         _state.return_as_dict = self.return_as_dict
+        _state.native_python_objects = self.native_python_objects
         try:
             if not mt5_initialize(**self._init_kwargs):
                 err_code, err_description = mt5_last_error()
@@ -173,6 +178,15 @@ class connected:
     def return_as_dict(self, flag: bool):
         _state.return_as_dict = flag
         self._return_as_dict = flag
+
+    @property
+    def native_python_objects(self):
+        return self._native_python_objects
+
+    @native_python_objects.setter
+    def native_python_objects(self, flag: bool):
+        _state.native_python_objects = flag
+        self._native_python_objects = flag
 
     def ping(self) -> Ping:
         """Get ping in microseconds for the terminal and server.

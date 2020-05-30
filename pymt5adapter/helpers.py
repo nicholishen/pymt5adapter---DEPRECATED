@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 
 from .types import *
@@ -19,21 +20,36 @@ def args_to_str(args: tuple, kwargs: dict):
     return ar + (', ' if ar and kw else '') + kw
 
 
-def as_dict_all(data: Any):
+def __ify(data, apply_methods):
+    for method in apply_methods:
+        if hasattr(data, method):  # noqa
+            return __ify(getattr(data, method)(), apply_methods) # noqa
+    T = type(data)
+    if T is tuple or T is list:
+        return T(__ify(i, apply_methods) for i in data)
+    if T is dict:
+        return {k: __ify(v, apply_methods) for k, v in data.items()}
+    return data
+
+def dictify(data: Any):
     """Convert all nested data returns to native python (pickleable) data structures. Example: List[OrderSendResult]
     -> List[dict]
 
     :param data: Any API returned result from the MetaTrader5 API
     :return:
     """
-    if hasattr(data, '_asdict'):  # this is about twice as fast as try, except!
-        return as_dict_all(data._asdict())
-    T = type(data)
-    if T is tuple or T is list:
-        return T(as_dict_all(i) for i in data)
-    if T is dict:
-        return {k: as_dict_all(v) for k, v in data.items()}
-    return data
+    # if hasattr(data, '_asdict'):  # noqa
+    #     return dictify(data._asdict()) # noqa
+    # T = type(data)
+    # if T is tuple or T is list:
+    #     return T(dictify(i) for i in data)
+    # if T is dict:
+    #     return {k: dictify(v) for k, v in data.items()}
+    return __ify(data, ['_asdict'])
+
+
+def make_native(data):
+    return __ify(data, ['_asdict', 'tolist'])
 
 
 def do_trade_action(func, args):
