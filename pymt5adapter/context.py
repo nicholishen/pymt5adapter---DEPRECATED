@@ -36,7 +36,7 @@ class Ping:
 
 class connected:
     def __init__(self, *,
-                 path: str = None,
+                 path: Union[str, Path] = None,
                  portable: bool = None,
                  server: str = None,
                  login: int = None,
