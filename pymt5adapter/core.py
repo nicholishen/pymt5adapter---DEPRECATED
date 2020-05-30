@@ -43,23 +43,24 @@ def _context_manager_modified(participation, advanced_features=True):
             result = f(*args, **kwargs)
             if not participation:
                 return result
-            last_err = None
-            if advanced_features and _state.debug_logging:
-                last_err = mt5_last_error()
-                call_sig = f"{f.__name__}({_h.args_to_str(args, kwargs)})"
-                _state.logger(f"[{call_sig}][{last_err}]")
             # make sure we logger before we raise
-            if advanced_features and _state.raise_on_errors:  # no need to check last error if we got a result
-                if isinstance(result, numpy.ndarray):
-                    is_result = True if len(result) > 0 else False
-                else:
-                    is_result = bool(result)
-                if not is_result:
-                    error_code, description = last_err or mt5_last_error()
-                    if error_code != _const.ERROR_CODE.OK:
-                        if error_code == _const.ERROR_CODE.INVALID_PARAMS:
-                            description += str(args) + str(kwargs)
-                        raise MT5Error(_const.ERROR_CODE(error_code), description)
+            if advanced_features:
+                last_err = None
+                if _state.debug_logging:
+                    last_err = mt5_last_error()
+                    call_sig = f"{f.__name__}({_h.args_to_str(args, kwargs)})"
+                    _state.logger(f"[{call_sig}][{last_err}]")
+                if _state.raise_on_errors:  # no need to check last error if we got a result
+                    if isinstance(result, numpy.ndarray):
+                        is_result = True if len(result) > 0 else False
+                    else:
+                        is_result = bool(result)
+                    if not is_result:
+                        error_code, description = last_err or mt5_last_error()
+                        if error_code != _const.ERROR_CODE.OK:
+                            if error_code == _const.ERROR_CODE.INVALID_PARAMS:
+                                description += str(args) + str(kwargs)
+                            raise MT5Error(_const.ERROR_CODE(error_code), description)
             if _state.native_python_objects:
                 result = _h.make_native(result)
             elif _state.return_as_dict:
