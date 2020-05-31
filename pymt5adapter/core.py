@@ -72,9 +72,6 @@ def _context_manager_modified(participation, advanced_features=True):
     return decorator
 
 
-mt5_account_info = _mt5.account_info
-
-
 @_context_manager_modified(participation=False)
 def parse_args(default_symbol: str = None,
                default_timeframe: Union[int, _const.TIMEFRAME] = None,
@@ -94,6 +91,9 @@ def parse_args(default_symbol: str = None,
             raise MT5Error(_const.ERROR_CODE.INVALID_COMMANDLINE_ARGS, f"Invalid command line args {sys.argv}")
         else:
             return None
+
+
+mt5_account_info = _mt5.account_info
 
 
 @_context_manager_modified(participation=True)
