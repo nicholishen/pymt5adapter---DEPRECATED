@@ -38,19 +38,19 @@ class Order(_ContextAwareBase):
 
     @classmethod
     def as_buy_limit(cls, **kwargs):
-        return cls(action=const.TRADE_ACTION.PENDING, type=const.ORDER_TYPE_BUY.LIMIT, **kwargs)
+        return cls(action=const.TRADE_ACTION.PENDING, type=const.ORDER_TYPE.BUY_LIMIT, **kwargs)
 
     @classmethod
     def as_sell_limit(cls, **kwargs):
-        return cls(action=const.TRADE_ACTION.PENDING, type=const.ORDER_TYPE_SELL.LIMIT, **kwargs)
+        return cls(action=const.TRADE_ACTION.PENDING, type=const.ORDER_TYPE.SELL_LIMIT, **kwargs)
 
     @classmethod
     def as_buy_stop(cls, **kwargs):
-        return cls(action=const.TRADE_ACTION.PENDING, type=const.ORDER_TYPE_BUY.STOP, **kwargs)
+        return cls(action=const.TRADE_ACTION.PENDING, type=const.ORDER_TYPE.BUY_STOP, **kwargs)
 
     @classmethod
     def as_sell_stop(cls, **kwargs):
-        return cls(action=const.TRADE_ACTION.PENDING, type=const.ORDER_TYPE_SELL.STOP, **kwargs)
+        return cls(action=const.TRADE_ACTION.PENDING, type=const.ORDER_TYPE.SELL_STOP, **kwargs)
 
     @classmethod
     def as_flatten(cls, position: TradePosition, **kwargs):
