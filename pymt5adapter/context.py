@@ -10,11 +10,12 @@ from . import const
 from .core import mt5_account_info
 from .core import mt5_initialize
 from .core import mt5_last_error
+from .core import mt5_shutdown
 from .core import mt5_terminal_info
 from .core import MT5Error
-from .core import shutdown
 from .helpers import LogJson
 from .helpers import reduce_args
+from .log import get_logger
 from .state import global_state as _state
 from .types import *
 
@@ -44,7 +45,7 @@ class connected:
                  login: int = None,
                  password: str = None,
                  timeout: int = None,
-                 logger: logging.Logger = None,
+                 logger: Union[logging.Logger, str, Path] = None,
                  ensure_trade_enabled: bool = None,
                  enable_real_trading: bool = None,
                  raise_on_errors: bool = None,
@@ -104,7 +105,10 @@ class connected:
         self._ensure_trade_enabled = ensure_trade_enabled
         self._enable_real_trading = enable_real_trading
         # managing global state
-        self._logger = logger
+        if isinstance(logger, (str, Path)):
+            self._logger = get_logger(path_to_logfile=logger, loglevel=logging.INFO, time_utc=True)
+        else:
+            self._logger = logger
         self._raise_on_errors = raise_on_errors
         # self._debug_logging = debug_logging
         self._terminal_info = None
@@ -115,22 +119,24 @@ class connected:
         self._state_on_enter = _state.get_state()
         _state.raise_on_errors = self.raise_on_errors
         # _state.debug_logging = self.debug_logging
-        _state.logger = logger = self.logger
+        _state.logger = logger = self._logger
         _state.return_as_dict = self.return_as_dict
-        _state.native_python_objects = self.native_python_objects
+        _state.return_as_native_python_objects = self.native_python_objects
         try:
             if not mt5_initialize(**self._init_kwargs):
+                # TODO is this logging in correctly?
                 last_err = mt5_last_error()
                 err_code, err_description = last_err
                 err_code = const.ERROR_CODE(err_code)
                 if self.logger:
                     self.logger.critical(LogJson('Initialization Failure', {
-                        'type'     : 'init_error',
-                        'exception': {
+                        'type'       : 'init_error',
+                        'exception'  : {
                             'type'      : 'MT5Error',
                             'message'   : err_description,
                             'last_error': last_err,
-                        }
+                        },
+                        'init_kwargs': self._init_kwargs,
                     }))
 
                 raise MT5Error(err_code, err_description)
@@ -185,7 +191,16 @@ class connected:
             raise
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        shutdown()
+        if self.logger and exc_val:
+            self.logger.critical(LogJson(f'UNCAUGHT EXCEPTION: {exc_val}', {
+                'type'      : 'exception',
+                'last_error': mt5_last_error(),
+                'exception' : {
+                    'type'   : exc_type.__name__,
+                    'message': str(exc_val),
+                }
+            }))
+        mt5_shutdown()
         _state.set_defaults(**self._state_on_enter)
         if self.logger:
             self.logger.info(LogJson('Terminal Shutdown', {'type': 'terminal_connection_state', 'state': False}))
@@ -239,7 +254,7 @@ class connected:
 
     @native_python_objects.setter
     def native_python_objects(self, flag: bool):
-        _state.native_python_objects = flag
+        _state.return_as_native_python_objects = flag
         self._native_python_objects = flag
 
     def ping(self) -> Ping:

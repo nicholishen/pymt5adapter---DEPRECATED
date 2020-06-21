@@ -14,14 +14,15 @@ class LogJson(dict):
         if dictionary_ is None and isinstance(short_message_, dict):
             dictionary_, short_message_ = short_message_, None
         is_dict = isinstance(dictionary_, dict)
-        self.short_message = short_message_
+        self.short_message = str(short_message_)
         if is_dict:
             super().__init__(dictionary_)
         else:
             super().__init__(**kwargs)
 
     def __str__(self):
-        msg = self.short_message or self.get('type', self.default_short_message)
+        type_ = self['type']
+        msg = self.short_message or type_ or self.default_short_message
         res = f"{msg}\t{json.dumps(self)}"
         return res
 

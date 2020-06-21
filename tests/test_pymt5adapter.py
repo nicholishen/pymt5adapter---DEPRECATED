@@ -9,15 +9,15 @@ from .context import pymt5adapter as mta
 from pymt5adapter.state import global_state as state
 from pymt5adapter import MT5Error
 
-from pymt5adapter.const import *
 
 import logging
 from pathlib import Path
 
+LOGPATH = Path.home() / 'Desktop/pytest_mt5.log'
 # PYTEST SETUP
 @pytest.fixture
 def connected():
-    logger = mta.get_logger(loglevel=logging.DEBUG, filename=Path.home() / 'Desktop/testinglog.log')
+    logger = mta.get_logger(loglevel=logging.DEBUG, path_to_logfile=LOGPATH)
     context = mta.connected(
         logger=logger,
         ensure_trade_enabled=True,
@@ -51,7 +51,7 @@ def test_mt5_connection_context():
     with connected as conn:
         # make sure the conn is setting the global state from properties
         assert not state.logger
-        conn.logger = mta.get_logger()
+        conn.logger = mta.get_logger(path_to_logfile=LOGPATH)
         assert state.logger
 
         assert not state.raise_on_errors

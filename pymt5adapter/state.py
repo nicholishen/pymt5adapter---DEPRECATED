@@ -17,7 +17,7 @@ class _GlobalState:
                      max_bars=None,
                      logger=None,
                      return_as_dict=None,
-                     native_python_objects=None,
+                     return_as_native_python_objects=None,
                      ):
         """Initializes the instance variables and provides a method for setting the state with a single call.
 
@@ -26,14 +26,14 @@ class _GlobalState:
         :param max_bars:
         :param logger:
         :param return_as_dict:
-        :param native_python_objects:
+        :param return_as_native_python_objects:
         :return:
         """
         self.raise_on_errors = raise_on_errors or False
         self.max_bars = max_bars or 100_000
         self._logger = logger
         self.return_as_dict = return_as_dict or False
-        self.native_python_objects = native_python_objects or False
+        self.return_as_native_python_objects = return_as_native_python_objects or False
 
     def get_state(self):
         state = dict(

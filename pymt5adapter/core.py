@@ -3,6 +3,7 @@ import logging
 import re
 import time
 from datetime import datetime
+from pathlib import Path
 
 import MetaTrader5 as _mt5
 import numpy
@@ -65,12 +66,13 @@ def _context_manager_modified(participation, advanced_features=True):
             except Exception as e:
                 if logger:
                     logger.error(_h.LogJson('EXCEPTION', {
-                        'type'     : 'exception',
-                        'exception': {
-                            'type'      : type(e).__name__,
-                            'message'   : str(e),
-                            'last_error': mt5_last_error(),
-                        }
+                        'type'      : 'exception',
+                        'last_error': mt5_last_error(),
+                        'exception' : {
+                            'type'   : type(e).__name__,
+                            'message': str(e),
+                        },
+                        'call_signature': dict(function=use_func.__name__, args=args, kwargs=kwargs)
                     }))
                 raise
             # make sure we logger before we raise
@@ -91,19 +93,21 @@ def _context_manager_modified(participation, advanced_features=True):
                     if isinstance(result, OrderSendResult):
                         response = result._asdict()
                         request = response.pop('request')._asdict()
-                        request_dict = _h.LogJson(type='order_request')
+                        request_name = _const.ORDER_TYPE(request['type']).name
+                        response_name = trade_retcode_description(response['retcode'])
+                        request_dict = _h.LogJson(short_message_=f'Order Request: {request_name}', type='order_request')
                         request_dict['request'] = request
                         logger.info(request_dict)
-                        response_dict = _h.LogJson(type='order_response')
+                        response_dict = _h.LogJson(short_message_=f'Order Response: {response_name}', type='order_response')
                         if hasattr(use_func, '_perf_timer'):
                             response_dict['latency_ms'] = use_func._perf_timer
                         response_dict['response'] = response
                         logger.info(response_dict)
                         if result.retcode != _const.TRADE_RETCODE.DONE:
-                            logger.warning(_h.LogJson({
+                            logger.warning(_h.LogJson(f'Order Fail: {response_name}', {
                                 'type'       : 'order_fail',
                                 'retcode'    : result.retcode,
-                                'description': trade_retcode_description(result.retcode),
+                                'description': response_name,
                             }))
                 if _state.raise_on_errors:  # no need to check last error if we got a result
                     if isinstance(result, numpy.ndarray):
@@ -116,7 +120,7 @@ def _context_manager_modified(participation, advanced_features=True):
                             if error_code == _const.ERROR_CODE.INVALID_PARAMS:
                                 description += str(args) + str(kwargs)
                             raise MT5Error(_const.ERROR_CODE(error_code), description)
-            if _state.native_python_objects:
+            if _state.return_as_native_python_objects:
                 result = _h.make_native(result)
             elif _state.return_as_dict:
                 result = _h.dictify(result)
@@ -935,16 +939,3 @@ def version() -> Tuple[int, int, str]:
 def get_function_dispatch():
     dispatch = {n: f for n, f in globals().items() if hasattr(f, '__dispatch')}
     return dispatch
-
-
-@_context_manager_modified(participation=False, advanced_features=False)
-@functools.lru_cache
-def get_logger(name='root', loglevel=logging.INFO, filename='python_mt5.log'):
-    FORMAT = "%(asctime)s\t%(levelname)s\t%(message)s"
-    logger = logging.getLogger(name)
-    logger.setLevel(loglevel)
-    ch = logging.FileHandler(filename)
-    ch.setLevel(logging.DEBUG)
-    ch.setFormatter(logging.Formatter(FORMAT))
-    logger.addHandler(ch)
-    return logger
