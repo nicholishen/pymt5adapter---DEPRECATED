@@ -1,7 +1,29 @@
-import json
 from datetime import datetime
 
 from .types import *
+
+try:
+    import ujson as json
+except ImportError:
+    import json
+
+
+class LogJson(dict):
+    def __init__(self, short_message_=None, dictionary_=None, **kwargs):
+        self.default_short_message = 'JSON ENTRY'
+        if dictionary_ is None and isinstance(short_message_, dict):
+            dictionary_, short_message_ = short_message_, None
+        is_dict = isinstance(dictionary_, dict)
+        self.short_message = short_message_
+        if is_dict:
+            super().__init__(dictionary_)
+        else:
+            super().__init__(**kwargs)
+
+    def __str__(self):
+        msg = self.short_message or self.get('type', self.default_short_message)
+        res = f"{msg}\t{json.dumps(self)}"
+        return res
 
 
 def any_symbol(symbol):
@@ -23,13 +45,14 @@ def args_to_str(args: tuple, kwargs: dict):
 def __ify(data, apply_methods):
     for method in apply_methods:
         if hasattr(data, method):  # noqa
-            return __ify(getattr(data, method)(), apply_methods) # noqa
+            return __ify(getattr(data, method)(), apply_methods)  # noqa
     T = type(data)
     if T is tuple or T is list:
         return T(__ify(i, apply_methods) for i in data)
     if T is dict:
         return {k: __ify(v, apply_methods) for k, v in data.items()}
     return data
+
 
 def dictify(data: Any):
     """Convert all nested data returns to native python (pickleable) data structures. Example: List[OrderSendResult]

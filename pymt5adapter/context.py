@@ -1,4 +1,5 @@
 import contextlib
+import logging
 import signal
 import sys
 import time
@@ -12,6 +13,7 @@ from .core import mt5_last_error
 from .core import mt5_terminal_info
 from .core import MT5Error
 from .core import shutdown
+from .helpers import LogJson
 from .helpers import reduce_args
 from .state import global_state as _state
 from .types import *
@@ -42,13 +44,12 @@ class connected:
                  login: int = None,
                  password: str = None,
                  timeout: int = None,
+                 logger: logging.Logger = None,
                  ensure_trade_enabled: bool = None,
                  enable_real_trading: bool = None,
                  raise_on_errors: bool = None,
-                 debug_logging: bool = None,
-                 logger: Callable = None,
-                 return_as_dict: bool = None,
-                 native_python_objects: bool = None,
+                 return_as_dict: bool = False,
+                 return_as_native_python_objects: bool = False,
                  **kwargs
                  ):
         """Context manager for managing the connection with a MT5 terminal using the python ``with`` statement.
@@ -63,9 +64,9 @@ class connected:
         :param enable_real_trading:  Must be explicitly set to True to run on a live account.
         :param raise_on_errors: Automatically checks last_error() after each function call and will raise a Mt5Error when the error-code is not RES_S_OK
         :param debug_logging: Logs each function call.
-        :param logger: Logging function. Will pass connection status messages to this function.
+        :param logger: logging.Logger instance. Setting logger.debugLevel to DEBUG will profile and log function calls
         :param return_as_dict: Converts all namedtuple to dictionaries.
-        :param native_python_objects: Converts all returns to JSON. Namedtuples become JSON objects and numpy arrays become JSON arrays.
+        :param return_as_native_python_objects: Converts all returns to JSON. Namedtuples become JSON objects and numpy arrays become JSON arrays.
 
         :param kwargs:
         :return: None
@@ -77,11 +78,22 @@ class connected:
         if path:
             try:
                 path = Path(path)
+                if path.is_dir():
+                    path = next(path.glob('**/terminal64.exe'))
                 if not path.exists() or 'terminal64' not in str(path):
                     raise Exception
                 path = str(path.absolute())
             except Exception:
-                raise MT5Error(const.ERROR_CODE.INVALID_PARAMS, "Invalid path to terminal.")
+                if logger:
+                    logger.error(LogJson('Invalid Terminal Path', {
+                        'type'     : 'init_error',
+                        'exception': {
+                            'type'      : 'MT5Error',
+                            'message'   : 'Invalid path to terminal.',
+                            'last_error': [const.ERROR_CODE.INVALID_PARAMS.value, 'Invalid path to terminal.'],
+                        }
+                    }))
+                raise MT5Error(const.ERROR_CODE.INVALID_PARAMS, 'Invalid path to terminal.')
         if password:
             password = str(password)
 
@@ -92,39 +104,80 @@ class connected:
         self._ensure_trade_enabled = ensure_trade_enabled
         self._enable_real_trading = enable_real_trading
         # managing global state
-        self.logger = logger
+        self._logger = logger
         self._raise_on_errors = raise_on_errors
-        self._debug_logging = debug_logging
+        # self._debug_logging = debug_logging
         self._terminal_info = None
         self._return_as_dict = return_as_dict
-        self._native_python_objects = native_python_objects
+        self._native_python_objects = return_as_native_python_objects
 
     def __enter__(self):
         self._state_on_enter = _state.get_state()
         _state.raise_on_errors = self.raise_on_errors
-        _state.debug_logging = self.debug_logging
+        # _state.debug_logging = self.debug_logging
+        _state.logger = logger = self.logger
         _state.return_as_dict = self.return_as_dict
         _state.native_python_objects = self.native_python_objects
         try:
             if not mt5_initialize(**self._init_kwargs):
-                err_code, err_description = mt5_last_error()
+                last_err = mt5_last_error()
+                err_code, err_description = last_err
                 err_code = const.ERROR_CODE(err_code)
-                raise MT5Error(err_code, err_description)
+                if self.logger:
+                    self.logger.critical(LogJson('Initialization Failure', {
+                        'type'     : 'init_error',
+                        'exception': {
+                            'type'      : 'MT5Error',
+                            'message'   : err_description,
+                            'last_error': last_err,
+                        }
+                    }))
 
-            if self.debug_logging:
-                self.logger("MT5 connection has been initialized.")
+                raise MT5Error(err_code, err_description)
+            self._account_info = mt5_account_info()
+            self._terminal_info = mt5_terminal_info()
+            if logger:
+                logger.info(LogJson('Terminal Initialize Success', {
+                    'type' : 'terminal_connection_state',
+                    'state': True
+                }))
+                logger.info(LogJson('Init TerminalInfo', {
+                    'type'         : 'init_terminal_info',
+                    'terminal_info': self._terminal_info._asdict()
+                }))
+                logger.info(LogJson('Init AccountInfo', {
+                    'type'        : 'init_account_info',
+                    'account_info': self._account_info._asdict()
+                }))
             if not self._enable_real_trading:
-                acc_info = mt5_account_info()
-                if acc_info.trade_mode == const.ACCOUNT_TRADE_MODE.REAL:
-                    raise MT5Error(
-                        const.ERROR_CODE.REAL_ACCOUNT_DISABLED,
-                        "Real account trading has not been enabled in the context manager")
+                if self._account_info.trade_mode == const.ACCOUNT_TRADE_MODE.REAL:
+                    msg = "Real account trading has not been enabled in the context manager"
+                    if logger:
+                        logger.critical(LogJson('Real Account Trading Disabled', {
+                            'type'     : 'init_error',
+                            'exception': {
+                                'type'      : 'MT5Error',
+                                'message'   : msg,
+                                'last_error': [const.ERROR_CODE.REAL_ACCOUNT_DISABLED.value, msg],
+                            }
+                        }))
+                    raise MT5Error(const.ERROR_CODE.REAL_ACCOUNT_DISABLED, msg)
             if self._ensure_trade_enabled:
                 term_info = self.terminal_info
                 _state.max_bars = term_info.maxbars
                 if not term_info.trade_allowed:
-                    if self.debug_logging:
-                        self.logger("Failed to initialize because auto-trade is disabled in terminal.")
+                    if logger:
+                        logger.critical(LogJson('Initialization Error', {
+                            'type'     : 'init_error',
+                            'exception': {
+                                'type'      : 'MT5Error',
+                                'message'   : "Terminal Auto-Trading is disabled.",
+                                'last_error': [
+                                    const.ERROR_CODE.AUTO_TRADING_DISABLED.value,
+                                    "Terminal Auto-Trading is disabled."
+                                ],
+                            }
+                        }))
                     raise MT5Error(const.ERROR_CODE.AUTO_TRADING_DISABLED, "Terminal Auto-Trading is disabled.")
             return self
         except:
@@ -134,26 +187,27 @@ class connected:
     def __exit__(self, exc_type, exc_val, exc_tb):
         shutdown()
         _state.set_defaults(**self._state_on_enter)
-        if self.debug_logging:
-            self.logger("MT5 connection has been shutdown.")
+        if self.logger:
+            self.logger.info(LogJson('Terminal Shutdown', {'type': 'terminal_connection_state', 'state': False}))
 
     @property
-    def logger(self):
+    def logger(self) -> logging.Logger:
         return self._logger
 
+    #
     @logger.setter
     def logger(self, new_logger):
-        self._logger = new_logger or print
-        _state.logger = self._logger
+        self._logger = new_logger
+        _state.logger = new_logger
 
-    @property
-    def debug_logging(self):
-        return self._debug_logging
-
-    @debug_logging.setter
-    def debug_logging(self, flag: bool):
-        _state.debug_logging = flag
-        self._debug_logging = flag
+    # @property
+    # def debug_logging(self):
+    #     return self._debug_logging
+    #
+    # @debug_logging.setter
+    # def debug_logging(self, flag: bool):
+    #     _state.debug_logging = flag
+    #     self._debug_logging = flag
 
     @property
     def raise_on_errors(self) -> bool:

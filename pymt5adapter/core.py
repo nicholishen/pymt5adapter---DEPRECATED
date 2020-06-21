@@ -1,5 +1,7 @@
 import functools
+import logging
 import re
+import time
 from datetime import datetime
 
 import MetaTrader5 as _mt5
@@ -34,22 +36,75 @@ class MT5Error(Exception):
         self.strerror = self.description = description
 
 
+def _timed_func(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        timer = time.perf_counter_ns()
+        result = f(*args, **kwargs)
+        timer = time.perf_counter_ns() - timer
+        wrapper._perf_timer = round(timer / 1e6, 3)
+        return result
+
+    return wrapper
+
+
 def _context_manager_modified(participation, advanced_features=True):
     def decorator(f):
-        f.__dispatch = True
-
+        # f.__dispatch = True
         @functools.wraps(f)
-        def cmm_wrapped_func(*args, **kwargs):
-            result = f(*args, **kwargs)
+        def pymt5adapter_wrapped_function(*args, **kwargs):
             if not participation:
-                return result
+                return f(*args, **kwargs)
+            logger = _state.logger
+            timed_func = None
+            if logger and logger.level == logging.DEBUG and f is not order_send:
+                timed_func = _timed_func(f)
+            use_func = timed_func or f
+            try:
+                result = use_func(*args, **kwargs)
+            except Exception as e:
+                if logger:
+                    logger.error(_h.LogJson('EXCEPTION', {
+                        'type'     : 'exception',
+                        'exception': {
+                            'type'      : type(e).__name__,
+                            'message'   : str(e),
+                            'last_error': mt5_last_error(),
+                        }
+                    }))
+                raise
             # make sure we logger before we raise
             if advanced_features:
                 last_err = None
-                if _state.debug_logging:
-                    last_err = mt5_last_error()
-                    call_sig = f"{f.__name__}({_h.args_to_str(args, kwargs)})"
-                    _state.logger(f"[{call_sig}][{last_err}]")
+                if logger:
+                    if result is None or logger.level == logging.DEBUG:
+                        log = logger.warning if result is None else logger.debug
+                        log_dict = _h.LogJson(short_message_=f'Function Debugging: {use_func.__name__}',
+                                              type='function_debugging')
+                        if hasattr(use_func, '_perf_timer'):
+                            log_dict['latency_ms'] = use_func._perf_timer
+                        last_err = mt5_last_error()
+                        log_dict['last_error'] = mt5_last_error()
+                        log_dict['call_signature'] = dict(function=use_func.__name__, args=args, kwargs=kwargs)
+                        # call_sig = f"{f.__name__}({_h.args_to_str(args, kwargs)})"
+                        log(log_dict)
+                    if isinstance(result, OrderSendResult):
+                        response = result._asdict()
+                        request = response.pop('request')._asdict()
+                        request_dict = _h.LogJson(type='order_request')
+                        request_dict['request'] = request
+                        logger.info(request_dict)
+                        response_dict = _h.LogJson(type='order_response')
+                        if hasattr(use_func, '_perf_timer'):
+                            response_dict['latency_ms'] = use_func._perf_timer
+                        response_dict['response'] = response
+                        logger.info(response_dict)
+                        if result.retcode != _const.TRADE_RETCODE.DONE:
+                            logger.warning(_h.LogJson({
+                                'type'       : 'order_fail',
+                                'retcode'    : result.retcode,
+                                'description': trade_retcode_description(result.retcode),
+                            }))
                 if _state.raise_on_errors:  # no need to check last error if we got a result
                     if isinstance(result, numpy.ndarray):
                         is_result = True if len(result) > 0 else False
@@ -67,7 +122,8 @@ def _context_manager_modified(participation, advanced_features=True):
                 result = _h.dictify(result)
             return result
 
-        return cmm_wrapped_func
+        pymt5adapter_wrapped_function.__dispatch = True
+        return pymt5adapter_wrapped_function
 
     return decorator
 
@@ -567,6 +623,7 @@ mt5_order_send = _mt5.order_send
 
 
 @_context_manager_modified(participation=True)
+@_timed_func
 def order_send(request: dict = None,
                *,
                action: int = None, magic: int = None, order: int = None,
@@ -878,3 +935,16 @@ def version() -> Tuple[int, int, str]:
 def get_function_dispatch():
     dispatch = {n: f for n, f in globals().items() if hasattr(f, '__dispatch')}
     return dispatch
+
+
+@_context_manager_modified(participation=False, advanced_features=False)
+@functools.lru_cache
+def get_logger(name='root', loglevel=logging.INFO, filename='python_mt5.log'):
+    FORMAT = "%(asctime)s\t%(levelname)s\t%(message)s"
+    logger = logging.getLogger(name)
+    logger.setLevel(loglevel)
+    ch = logging.FileHandler(filename)
+    ch.setLevel(logging.DEBUG)
+    ch.setFormatter(logging.Formatter(FORMAT))
+    logger.addHandler(ch)
+    return logger
