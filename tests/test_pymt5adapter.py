@@ -44,6 +44,7 @@ def make_kwargs_func(func):
 
 
 def test_mt5_connection_context():
+    from pymt5adapter.context import Ping
     state.set_defaults()
     assert not state.logger
     assert not state.raise_on_errors
@@ -51,7 +52,7 @@ def test_mt5_connection_context():
     with connected as conn:
         # make sure the conn is setting the global state from properties
         assert not state.logger
-        conn.logger = mta.get_logger(path_to_logfile=LOGPATH)
+        conn.logger = mta.get_logger(path_to_logfile=LOGPATH, loglevel=logging.DEBUG)
         assert state.logger
 
         assert not state.raise_on_errors
@@ -67,8 +68,7 @@ def test_mt5_connection_context():
         except MT5Error:
             pytest.fail("Raised MT5Error when feature was toggled off")
         ping = conn.ping()
-        print(ping.terminal)
-        print(ping.trade_server)
+        assert isinstance(ping, Ping)
         # pass
 
 
@@ -115,10 +115,11 @@ def test_terminal_version(connected):
 
 
 def test_package_version():
-    import re
-    pattern = re.compile(r'^\d+\.\d+\.\d+$')
-    assert isinstance(version := mta.__version__, str)
-    assert pattern.match(version)
+    v = mta.__version__
+    assert isinstance(v, dict)
+    assert 'MetaTrader5' in v
+    assert 'pymt5adapter' in v
+    assert 'pymt5adapter' in v
 
 
 # CORE TESTING

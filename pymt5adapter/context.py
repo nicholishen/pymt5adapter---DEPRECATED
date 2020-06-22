@@ -3,7 +3,6 @@ import logging
 import signal
 import sys
 import time
-from dataclasses import dataclass
 from pathlib import Path
 
 from . import const
@@ -19,6 +18,8 @@ from .log import get_logger
 from .state import global_state as _state
 from .types import *
 
+Ping = namedtuple('Ping', 'trade_server terminal')
+
 
 class _ContextAwareBase:
     __state = _state
@@ -29,12 +30,6 @@ class _ContextAwareBase:
                 const.ERROR_CODE.UNSUPPORTED,
                 f"Cannot use {cls.__name__} class when API state set to return all as dict.")
         return super().__new__(cls)
-
-
-@dataclass
-class Ping:
-    terminal: int
-    trade_server: int
 
 
 class connected:
@@ -209,20 +204,10 @@ class connected:
     def logger(self) -> logging.Logger:
         return self._logger
 
-    #
     @logger.setter
     def logger(self, new_logger):
         self._logger = new_logger
         _state.logger = new_logger
-
-    # @property
-    # def debug_logging(self):
-    #     return self._debug_logging
-    #
-    # @debug_logging.setter
-    # def debug_logging(self, flag: bool):
-    #     _state.debug_logging = flag
-    #     self._debug_logging = flag
 
     @property
     def raise_on_errors(self) -> bool:
@@ -258,7 +243,8 @@ class connected:
         self._native_python_objects = flag
 
     def ping(self) -> Ping:
-        """Get ping in microseconds for the terminal and server.
+        """Get ping in microseconds for the terminal and trade_server.
+        Ping attrs = Ping.terminal and Ping.trade_server
 
         :return: dict with 'server' and 'terminal' ping
         """

@@ -11,5 +11,14 @@ from .log import get_logger
 from .oem import *
 
 as_dict_all = dictify  # alias
-__version__ = _mt5.__version__
-__author__ = _mt5.__author__
+__version__ = {
+    'pymt5adapter': '0.4.2',
+    'MetaTrader5' : _mt5.__version__,
+}
+
+__author__ = {
+    'pymt5adapter': 'nicholishen',
+    'MetaTrader5' : _mt5.__author__,
+}
+
+# TODO add logging doc to README
