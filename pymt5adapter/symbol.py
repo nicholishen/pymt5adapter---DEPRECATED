@@ -80,6 +80,16 @@ class Symbol(_ContextAwareBase):
         if ts != 0.0:
             return round(round(price / ts) * ts, self.digits)
 
+    def tick_calc(self, price: float, num_ticks: int):
+        """Calculate a new price by number of ticks from the price param. The result is normalized to the
+        tick-size of the instrument.
+
+        :param price: The price to add or subtract ticks from.
+        :param num_ticks: number of ticks. If subtracting ticks then this should be a negative number.
+        :return: A new price adjusted by the number of ticks and normalized to tick-size.
+        """
+        return self.normalize_price(price + num_ticks * self.trade_tick_size)
+
     def refresh_rates(self):
         self._tick = symbol_info_tick(self.name)
         return self
