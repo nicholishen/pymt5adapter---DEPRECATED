@@ -34,7 +34,7 @@ class Order(_ContextAwareBase):
 
     @classmethod
     def as_sell(cls, **kwargs):
-        return cls(action=const.TRADE_ACTION.DEAL, type=const.TRADE_ACTION.DEAL, **kwargs)
+        return cls(action=const.TRADE_ACTION.DEAL, type=const.ORDER_TYPE.SELL, **kwargs)
 
     @classmethod
     def as_buy_limit(cls, **kwargs):
