@@ -7,7 +7,7 @@ in addition to a more pythonic interface:
  - Typing hinting has been added to all functions and return objects for linting and IDE integration. 
  Now intellisense will work no matter how nested objects are. ![alt text][intellisence_screen]
  - Docstrings have been added to each function 
- (see MQL [documentation](https://www.mql5.com/en/docs/integration/python_metatrader5)). 
+ (see official MQL [documentation](https://www.mql5.com/en/docs/integration/python_metatrader5)). 
  Docs can now be accessed on the fly in the IDE. For example: `Ctrl+Q` in pycharm. ![alt text][docs_screen]
  - All params can now be called by keyword. No more positional only args.
  - Testing included compliments of `pytest`
@@ -15,10 +15,10 @@ in addition to a more pythonic interface:
  of the terminal connection. The use of this context-manager can do the following: 
  
    - Ensures that `mt5.shutdown()` is always called, even if the user code throws an uncaught exception.
-   - Can modify the entire behavior of the API with some simple settings:
+   - Modifies the global behavior of the API:
       - Ensure the terminal has enabled auto-trading.
       - Prevents running on real account by default
-      - Can automatically enable global debugging using your logger of choice
+      - Accepts a logger and automatically logs function API calls and order activity. 
       - Can raise the custom `MT5Error `exception whenever `last_error()[0] != RES_S_OK` (off by default)
 
 
@@ -67,6 +67,9 @@ and can be customized to modify the entire API
 
 ```python
 import pymt5adapter as mt5
+import logging
+
+logger = mt5.get_logger(path_to_logfile='my_mt5_log.log', loglevel=logging.DEBUG, time_utc=True)
 
 mt5_connected = mt5.connected(
     path=r'C:\Users\user\Desktop\MT5\terminal64.exe',
@@ -75,11 +78,12 @@ mt5_connected = mt5.connected(
     login=1234567,
     password='password1',
     timeout=5000,
-    ensure_trade_enabled=True, # default is False
-    enable_real_trading=False, # default is False
-    raise_on_errors=True,      # default is False
-    debug_logging=True,        # default is False
-    logger=print,              # default is print
+    logger=logger, # default is None
+    ensure_trade_enabled=True,  # default is False
+    enable_real_trading=False,  # default is False
+    raise_on_errors=True,  # default is False
+    return_as_dict=False, # default is False
+    return_as_native_python_objects=False, # default is False
 )
 with mt5_connected as conn:
     try:
@@ -95,7 +99,6 @@ with mt5_connected as conn:
         pass
     else:
         print('We modified the API to silence Exceptions at runtime')
-
 ```
 
 Output:
@@ -112,7 +115,7 @@ MT5 connection has been shutdown.
 
 ```
 
-## Exception handling
+# Exception handling
 
 The `MetaTrader5` package does not raise exceptions and all errors fail silently
 by default. This behavior forces the developer to check each object for 
@@ -143,6 +146,26 @@ You can use "is" to check identity since we use enums
 Errors will not raise exceptions and default behavior has bene restored at runtime
 (-2, 'Invalid arguments')
 ```
+
+# Logging
+
+Logging functionality has been added to the API and can be utilized by passing any logger that implements the
+`logging.Logger` interface to the `logger` param in `connected` context manager. Messages generated from the API
+functions are always tab deliminated and include two parts:
+1. A short human readable message.
+2. A JSON dump for easy log parsing and debugging. 
+```
+2020-07-22 18:54:10,399	INFO	Terminal Initialize Success	{"type": "terminal_connection_state", "state": true}
+```
+For convenience, a preconfigured logger can be retrieved by calling `get_logger`
+```python
+logger = mt5.get_logger(path_to_logfile='my_mt5_log.log', loglevel=logging.DEBUG, time_utc=True)
+
+with mt5.connected(logger=logger):
+    main()
+```
+Note: The API will only automatically log if a logger is passed into the context manager. The intent was to provide
+convenience but not force an opinionated logging schema.
 
 # Additional features not included in the `MetaTrader5` package
 

@@ -3,7 +3,6 @@ import logging
 import re
 import time
 from datetime import datetime
-from pathlib import Path
 
 import MetaTrader5 as _mt5
 import numpy
@@ -66,9 +65,9 @@ def _context_manager_modified(participation, advanced_features=True):
             except Exception as e:
                 if logger:
                     logger.error(_h.LogJson('EXCEPTION', {
-                        'type'      : 'exception',
-                        'last_error': mt5_last_error(),
-                        'exception' : {
+                        'type'          : 'exception',
+                        'last_error'    : mt5_last_error(),
+                        'exception'     : {
                             'type'   : type(e).__name__,
                             'message': str(e),
                         },
@@ -98,7 +97,8 @@ def _context_manager_modified(participation, advanced_features=True):
                         request_dict = _h.LogJson(short_message_=f'Order Request: {request_name}', type='order_request')
                         request_dict['request'] = request
                         logger.info(request_dict)
-                        response_dict = _h.LogJson(short_message_=f'Order Response: {response_name}', type='order_response')
+                        response_dict = _h.LogJson(short_message_=f'Order Response: {response_name}',
+                                                   type='order_response')
                         if hasattr(use_func, '_perf_timer'):
                             response_dict['latency_ms'] = use_func._perf_timer
                         response_dict['response'] = response
@@ -126,7 +126,8 @@ def _context_manager_modified(participation, advanced_features=True):
                 result = _h.dictify(result)
             return result
 
-        pymt5adapter_wrapped_function.__dispatch = True
+        if participation:
+            pymt5adapter_wrapped_function.__dispatch = True
         return pymt5adapter_wrapped_function
 
     return decorator
@@ -700,11 +701,12 @@ def orders_get(symbol=None,
         selected first and the ones containing "EUR" in symbol names should be excluded afterwards.
     """
     symbol = _h.any_symbol(symbol)
-    orders = _h.get_ticket_type_stuff(mt5_orders_get,
-                                      symbol=symbol,
-                                      group=group,
-                                      ticket=ticket,
-                                      function=function)
+    orders = _h.get_ticket_type_stuff(
+        mt5_orders_get,
+        symbol=symbol,
+        group=group,
+        ticket=ticket,
+        function=function)
     return orders
 
 
@@ -750,12 +752,13 @@ def positions_get(symbol=None,
     :return:
     """
     symbol = _h.any_symbol(symbol)
-    positions = _h.get_ticket_type_stuff(mt5_positions_get,
-                                         symbol=symbol,
-                                         group=group,
-                                         ticket=ticket,
-                                         function=function
-                                         )
+    positions = _h.get_ticket_type_stuff(
+        mt5_positions_get,
+        symbol=symbol,
+        group=group,
+        ticket=ticket,
+        function=function
+    )
     return positions
 
 
@@ -808,11 +811,8 @@ def symbol_info_tick(symbol) -> Tick:
     :param symbol:
     :return:
     """
-    try:
-        return _mt5.symbol_info_tick(symbol)
-    except Exception:
-        symbol = _h.any_symbol(symbol)
-        return mt5_symbol_info_tick(symbol)
+    symbol = _h.any_symbol(symbol)
+    return mt5_symbol_info_tick(symbol)
 
 
 # direct access to API function without any added overhead
@@ -937,5 +937,5 @@ def version() -> Tuple[int, int, str]:
 
 @_context_manager_modified(participation=False, advanced_features=False)
 def get_function_dispatch():
-    dispatch = {n: f for n, f in globals().items() if hasattr(f, '__dispatch')}
+    dispatch = dict(sorted((n, f) for n, f in globals().items() if hasattr(f, '__dispatch')))
     return dispatch

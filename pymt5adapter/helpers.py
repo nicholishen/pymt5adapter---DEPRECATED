@@ -82,6 +82,8 @@ def do_trade_action(func, args):
     symbol = cleaned.pop('symbol', None) or request.pop('symbol', None)
     cleaned['symbol'] = any_symbol(symbol)
     order_request = reduce_combine(request, cleaned)
+    if 'volume' in order_request and isinstance(order_request['volume'], int):
+        order_request['volume'] = float(order_request['volume'])
     return func(order_request)
 
 
@@ -115,7 +117,6 @@ def get_history_type_stuff(func, args):
         deals = func(**args)
     if function:
         deals = tuple(filter(function, deals))
-
     if deals is None:
         deals = ()
     elif type(deals) is not tuple:
