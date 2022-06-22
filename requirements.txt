@@ -1,2 +1,2 @@
 MetaTrader5==5.0.31
-numpy==1.18.2
+numpy==1.22.0
